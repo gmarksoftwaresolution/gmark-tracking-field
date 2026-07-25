@@ -111,5 +111,5 @@ if (!string.IsNullOrEmpty(port))
 {
     app.Urls.Add($"http://0.0.0.0:{port}");
 }
-
+app.MapGet("/", () => "G-Mart Tracking API is running successfully!");
 app.Run();

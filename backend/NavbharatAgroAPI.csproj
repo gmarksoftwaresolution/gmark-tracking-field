@@ -5,32 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);1591;NU1903</NoWarn># Runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
-
-# Build image
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-
-COPY ["NavbharatAgroAPI.csproj", "./"]
-
-RUN dotnet restore "NavbharatAgroAPI.csproj"
-
-COPY . .
-
-RUN dotnet publish "NavbharatAgroAPI.csproj" -c Release -o /app/publish --no-restore
-
-# Final image
-FROM base AS final
-WORKDIR /app
-
-COPY --from=build /app/publish .
-
-ENTRYPOINT ["dotnet", "NavbharatAgroAPI.dll"]
+    <NoWarn>$(NoWarn);1591;NU1903</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
