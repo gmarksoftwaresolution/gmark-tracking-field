@@ -10,6 +10,7 @@ if (!string.IsNullOrEmpty(databaseUrl))
 {
     var databaseUri = new Uri(databaseUrl);
     var userInfo = databaseUri.UserInfo.Split(':');
+
     var builderDb = new Npgsql.NpgsqlConnectionStringBuilder
     {
         Host = databaseUri.Host,
@@ -18,6 +19,7 @@ if (!string.IsNullOrEmpty(databaseUrl))
         Password = userInfo[1],
         Database = databaseUri.LocalPath.TrimStart('/')
     };
+
     connectionString = builderDb.ToString();
 }
 else if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PGHOST")))
@@ -30,33 +32,36 @@ else if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PGHOST")))
         Password = Environment.GetEnvironmentVariable("PGPASSWORD"),
         Database = Environment.GetEnvironmentVariable("PGDATABASE")
     };
+
     connectionString = builderDb.ToString();
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(c =>
 {
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (System.IO.File.Exists(xmlPath))
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+    if (File.Exists(xmlPath))
     {
         c.IncludeXmlComments(xmlPath);
     }
 });
 
-builder.Services.AddControllers();
-
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
 });
 
 var app = builder.Build();
@@ -64,19 +69,26 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
+
+        // Apply database migrations
+        context.Database.Migrate();
+
+        // Seed initial data
         DbInitializer.SeedEmployees(context);
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while initializing the database.");
+        logger.LogError(ex, "Database initialization failed.");
     }
 }
 
 app.UseSwagger();
+
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Navbharat Agro API V1");
@@ -84,9 +96,20 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseRouting();
+
 app.UseCors("AllowFrontend");
+
 app.UseAuthorization();
+
 app.MapControllers();
+
 app.MapGet("/health", () => Results.Ok("Healthy"));
+
+var port = Environment.GetEnvironmentVariable("PORT");
+
+if (!string.IsNullOrEmpty(port))
+{
+    app.Urls.Add($"http://0.0.0.0:{port}");
+}
 
 app.Run();
