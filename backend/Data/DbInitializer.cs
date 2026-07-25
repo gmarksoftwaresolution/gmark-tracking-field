@@ -28,9 +28,15 @@ namespace NavbharatAgroAPI.Data
             }
 
             // Explicitly remove incorrect record Prutivraj (EmployeeCode: EMP002 or Name: Prutivraj)
-            var incorrectPrutivraj = context.Employees
-                .Where(e => e.EmployeeCode == "EMP002" || e.Name.Trim().Equals("Prutivraj", StringComparison.OrdinalIgnoreCase) || (e.Name.ToLower().Contains("prutivraj") && !e.Name.ToLower().Contains("pruthviraj")))
-                .ToList();
+var incorrectPrutivraj = context.Employees
+    .AsEnumerable()
+    .Where(e =>
+        e.EmployeeCode == "EMP002" ||
+        e.Name.Trim().Equals("Prutivraj", StringComparison.OrdinalIgnoreCase) ||
+        (e.Name.ToLower().Contains("prutivraj") &&
+         !e.Name.ToLower().Contains("pruthviraj"))
+    )
+    .ToList();
             if (incorrectPrutivraj.Any())
             {
                 context.Employees.RemoveRange(incorrectPrutivraj);
