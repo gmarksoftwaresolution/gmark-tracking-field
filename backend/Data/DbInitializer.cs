@@ -60,49 +60,70 @@ var incorrectPrutivraj = context.Employees
             }
             context.SaveChanges();
 
-            // Ensure Kunal exists
-            if (!context.Employees.Any(e => e.Name.ToLower().Contains("kunal")))
+            // Ensure Kunal exists and update PasswordHash
+            var kunal = context.Employees.FirstOrDefault(e => e.Name.ToLower().Contains("kunal") || e.EmployeeCode.ToLower().Contains("k001"));
+            if (kunal == null)
             {
                 context.Employees.Add(new Employee
                 {
                     Id = 1,
-                    Name = "Kunal Employee",
+                    Name = "Kunal",
                     EmployeeCode = "K001",
                     MobileNumber = "9876543210",
-                    AssignedArea = "Kumbharwada",
+                    AssignedArea = "Kolhapur",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@k001"),
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 });
             }
+            else
+            {
+                kunal.EmployeeCode = "K001";
+                kunal.PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@k001");
+            }
 
-            // Ensure Pruthviraj exists
-            if (!context.Employees.Any(e => e.Name.ToLower().Contains("pruthviraj")))
+            // Ensure Pruthviraj exists and update PasswordHash
+            var pruthviraj = context.Employees.FirstOrDefault(e => e.Name.ToLower().Contains("pruthviraj") || e.EmployeeCode.ToLower().Contains("p001"));
+            if (pruthviraj == null)
             {
                 context.Employees.Add(new Employee
                 {
                     Id = 2,
-                    Name = "Pruthviraj Employee",
+                    Name = "Pruthviraj",
                     EmployeeCode = "P001",
                     MobileNumber = "9876543211",
-                    AssignedArea = "Nesari",
+                    AssignedArea = "Gadhinglaj",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@p001"),
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 });
             }
+            else
+            {
+                pruthviraj.EmployeeCode = "P001";
+                pruthviraj.PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@p001");
+            }
 
-            // Ensure Rohit exists
-            if (!context.Employees.Any(e => e.Name.ToLower().Contains("rohit")))
+            // Ensure Rohit exists and update PasswordHash
+            var rohit = context.Employees.FirstOrDefault(e => e.Name.ToLower().Contains("rohit") || e.EmployeeCode.ToLower().Contains("r001"));
+            if (rohit == null)
             {
                 context.Employees.Add(new Employee
                 {
                     Id = 3,
-                    Name = "Rohit Employee",
+                    Name = "Rohit",
                     EmployeeCode = "R001",
                     MobileNumber = "9876543212",
                     AssignedArea = "Nagpur",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@r001"),
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 });
+            }
+            else
+            {
+                rohit.EmployeeCode = "R001";
+                rohit.PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@r001");
             }
 
             context.SaveChanges();

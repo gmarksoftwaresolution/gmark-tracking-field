@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createOrderBooking, getProducts } from '../services/api';
 import { getActiveRoute, isTripStarted } from '../utils/routeHelper';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,16 @@ import DesktopSidebar from '../components/DesktopSidebar';
 
 export default function OrderBookings() {
   const navigate = useNavigate();
+  const firstInputRef = useRef(null);
+
+  // Scroll to top on page load and focus the first input field
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const timer = setTimeout(() => {
+      firstInputRef.current?.focus();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Initial state setup to match ASP.NET Core DTO structure
   const initialState = {
@@ -353,6 +363,7 @@ export default function OrderBookings() {
 
 
               <Input
+                ref={firstInputRef}
                 label="Customer Name *"
                 placeholder="Enter full name"
                 value={formData.customerName ?? ''}
@@ -381,14 +392,6 @@ export default function OrderBookings() {
                 value={formData.village ?? ''}
                 onChange={(e) => handleInputChange('village', e.target.value)}
                 error={errors.village}
-              />
-              <Input
-                label="Route *"
-                placeholder="Today's assigned route"
-                value={formData.route ?? ''}
-                readOnly={true}
-                className="bg-slate-100/70 text-slate-700 font-semibold cursor-not-allowed"
-                error={errors.route}
               />
 
             </div>

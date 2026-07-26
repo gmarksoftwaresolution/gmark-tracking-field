@@ -61,9 +61,9 @@ export default function DesktopSidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex flex-col fixed top-0 bottom-0 left-0 w-64 bg-white border-r border-slate-200 z-40 p-5 shadow-sm">
+    <aside className="hidden md:flex flex-col fixed top-0 bottom-0 left-0 w-64 bg-white border-r border-slate-200/80 z-40 p-6 shadow-sm">
       {/* Branding Header */}
-      <div className="flex items-center gap-3 pb-6 border-b border-slate-100 mb-6">
+      <div className="flex items-center gap-3.5 pb-6 border-b border-slate-100 mb-6">
         <img src="/gmark-logo.png" alt="Navbharat Logo" className="h-10 w-10 object-contain rounded-xl shadow-sm border border-slate-100 bg-white" />
         <div>
           <h2 className="font-extrabold text-slate-900 text-sm leading-snug">Navbharat Agro</h2>
@@ -72,17 +72,17 @@ export default function DesktopSidebar() {
       </div>
 
       {/* Main Navigation Links */}
-      <nav className="flex-1 space-y-1.5">
+      <nav className="flex-1 space-y-2.5">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+              className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25 scale-[1.02]'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
               }`}
             >
               <div className={isActive ? 'text-white' : 'text-slate-400'}>
@@ -96,23 +96,23 @@ export default function DesktopSidebar() {
 
       {/* User Info & Logout at Bottom */}
       <div className="pt-4 border-t border-slate-100 space-y-3">
-        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs">
+        <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs shadow-inner">
             {employeeName.charAt(0).toUpperCase()}
           </div>
           <div className="overflow-hidden flex-1">
             <p className="text-xs font-bold text-slate-900 truncate">
               {employeeName.replace(/\s+Employee$/i, '').trim()}
             </p>
-            <p className="text-[10px] text-slate-500 truncate">Field Staff</p>
+            <p className="text-[11px] text-slate-500 truncate">Field Staff</p>
           </div>
         </div>
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-slate-600 hover:text-red-600 hover:bg-red-50 transition-all duration-200 cursor-pointer"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400 group-hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
           <span>Logout</span>

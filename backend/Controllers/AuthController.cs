@@ -37,52 +37,26 @@ namespace NavbharatAgroAPI.Controllers
                     return Unauthorized(new { message = "Invalid Password" });
                 }
 
-                if (string.IsNullOrEmpty(employee.PasswordHash) || employee.PasswordHash == "1234" || employee.PasswordHash == "0000")
+                var trimmedPassword = request.Password?.Trim();
+                if (string.IsNullOrEmpty(trimmedPassword) || string.IsNullOrEmpty(employee.PasswordHash))
                 {
-                    if (request.Password == "0000" || request.Password == "1234")
-                    {
-                        employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword("0000");
-                        await _context.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        return Unauthorized(new { message = "Invalid Password" });
-                    }
+                    return Unauthorized(new { message = "Invalid Password" });
                 }
-                else 
-                {
-                    bool isValid = false;
-                    var trimmedPassword = request.Password?.Trim();
-                    
-                    if (trimmedPassword == "0000") 
-                    {
-                        // Unconditional override to enforce the new 0000 default for all employees
-                        employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword("0000");
-                        await _context.SaveChangesAsync();
-                        isValid = true;
-                    }
-                    else
-                    {
-                        try 
-                        {
-                            isValid = BCrypt.Net.BCrypt.Verify(trimmedPassword, employee.PasswordHash);
-                        }
-                        catch
-                        {
-                            // Fallback if hash is invalid (e.g. plaintext)
-                            if (trimmedPassword == employee.PasswordHash)
-                            {
-                                employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(trimmedPassword);
-                                await _context.SaveChangesAsync();
-                                isValid = true;
-                            }
-                        }
-                    }
 
-                    if (!isValid)
-                    {
-                        return Unauthorized(new { message = "Invalid Password" });
-                    }
+                bool isValid = false;
+                try
+                {
+                    isValid = BCrypt.Net.BCrypt.Verify(trimmedPassword, employee.PasswordHash);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "BCrypt verification exception for Employee ID {EmployeeId}", request.EmployeeId);
+                    isValid = false;
+                }
+
+                if (!isValid)
+                {
+                    return Unauthorized(new { message = "Invalid Password" });
                 }
 
                 var token = Guid.NewGuid().ToString();
@@ -98,7 +72,7 @@ namespace NavbharatAgroAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during employee login.");
-                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Server error during login." });
             }
         }
 

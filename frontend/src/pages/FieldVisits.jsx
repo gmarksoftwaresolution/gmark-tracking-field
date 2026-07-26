@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createFieldVisit, getProducts } from '../services/api';
 import { getActiveRoute, isTripStarted } from '../utils/routeHelper';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +10,16 @@ import DesktopSidebar from '../components/DesktopSidebar';
 
 export default function FieldVisits() {
   const navigate = useNavigate();
+  const firstInputRef = useRef(null);
+
+  // Scroll to top on page load and focus the first input field
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const timer = setTimeout(() => {
+      firstInputRef.current?.focus();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   const getInitialState = () => ({
     employeeId: localStorage.getItem('employeeId') || '',
@@ -298,6 +308,7 @@ export default function FieldVisits() {
 
 
               <Input
+                ref={firstInputRef}
                 label="Customer Name *"
                 placeholder="Enter full name"
                 value={formData.customerName ?? ''}
@@ -326,14 +337,6 @@ export default function FieldVisits() {
                 value={formData.village ?? ''}
                 onChange={(e) => handleInputChange('village', e.target.value)}
                 error={errors.village}
-              />
-              <Input
-                label="Route *"
-                placeholder="Today's assigned route"
-                value={formData.route ?? ''}
-                readOnly={true}
-                className="bg-slate-100/70 text-slate-700 font-semibold cursor-not-allowed"
-                error={errors.route}
               />
 
               <div className="md:col-span-2 border-t border-slate-100 pt-6 mt-2 relative">
