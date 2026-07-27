@@ -53,12 +53,7 @@ export default function OrderBookings() {
       return;
     }
 
-    const activeRoute = getActiveRoute(currentEmpName, currentEmpId);
-    const tripStarted = isTripStarted(currentEmpId);
-
-    if (!tripStarted && !localStorage.getItem(`activeRoute_${currentEmpId}`)) {
-      setApiError("Please start today's trip to load your assigned route.");
-    }
+    const activeRoute = getActiveRoute(currentEmpName, currentEmpId) || 'General Route';
 
     setFormData(prev => ({
       ...prev,
@@ -196,7 +191,6 @@ export default function OrderBookings() {
     const newErrors = {};
     if (!formData.employeeId) newErrors.employeeId = "Employee ID is required";
     if (!formData.assignedBy.trim()) newErrors.assignedBy = "Employee Name is required";
-    if (!formData.route.trim()) newErrors.route = "Route is required";
     if (!formData.customerName.trim()) newErrors.customerName = "Customer Name is required";
     if (!formData.village.trim()) newErrors.village = "Village is required";
     if (!formData.mobileNumber.trim()) {

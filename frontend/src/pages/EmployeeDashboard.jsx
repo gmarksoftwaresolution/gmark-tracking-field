@@ -121,69 +121,69 @@ export default function EmployeeDashboard() {
       {/* Main Content (2x2 Statistics Cards Grid with Generous Spacing) */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-6 sm:px-8 lg:px-12 py-10 sm:py-12">
 
-        {/* 2x2 Statistics Grid Section */}
+        {/* Statistics Grid Section (2x2 on Mobile/Tablet, 4-Column Row on Laptop/Desktop) */}
         <section className="w-full">
-          <div className="grid grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-6 lg:gap-6 w-full">
 
-            {/* Row 1, Col 1: Total Orders */}
-            <div className="bg-white rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-2xl hover:-translate-y-2 active:scale-[0.97] transition-all duration-300 p-6 sm:p-8 flex flex-col items-center justify-between text-center group select-none min-h-[210px] sm:min-h-[240px]">
+            {/* Card 1: Total Orders */}
+            <div className="bg-white rounded-2xl sm:rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] transition-all duration-300 p-3.5 sm:p-6 flex flex-col items-center justify-between text-center group select-none min-h-[160px] sm:min-h-[200px] lg:min-h-[220px] w-full">
               {/* Top Center Circular Icon Badge */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-9 sm:w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-10 h-10 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-1.5 sm:mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-7 sm:w-7 lg:h-8 lg:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                 </svg>
               </div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-500 tracking-wider uppercase">Total Orders</h3>
-              <p className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight my-2">{stats.total}</p>
-              <span className="text-xs font-medium text-slate-400">All Time</span>
+              <h3 className="text-[10px] sm:text-xs lg:text-xs font-bold text-slate-500 tracking-wider uppercase">Total Orders</h3>
+              <p className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-1 sm:my-2">{stats.total}</p>
+              <span className="text-[10px] sm:text-xs font-medium text-slate-400">All Time</span>
             </div>
 
-            {/* Row 1, Col 2: Pending Orders */}
+            {/* Card 2: Pending Orders */}
             <button
               onClick={() => navigate('/pending-orders')}
-              className="bg-white rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-2xl hover:-translate-y-2 active:scale-[0.97] transition-all duration-300 p-6 sm:p-8 flex flex-col items-center justify-between text-center group cursor-pointer select-none min-h-[210px] sm:min-h-[240px]"
+              className="bg-white rounded-2xl sm:rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] transition-all duration-300 p-3.5 sm:p-6 flex flex-col items-center justify-between text-center group cursor-pointer select-none min-h-[160px] sm:min-h-[200px] lg:min-h-[220px] w-full"
             >
               {/* Top Center Circular Icon Badge */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-9 sm:w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-10 h-10 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-1.5 sm:mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-7 sm:w-7 lg:h-8 lg:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-500 tracking-wider uppercase">Pending Orders</h3>
-              <p className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight my-2">{stats.pending}</p>
-              <span className="text-xs font-medium text-amber-600 group-hover:underline">Awaiting Delivery</span>
+              <h3 className="text-[10px] sm:text-xs lg:text-xs font-bold text-slate-500 tracking-wider uppercase">Pending Orders</h3>
+              <p className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-1 sm:my-2">{stats.pending}</p>
+              <span className="text-[10px] sm:text-xs font-medium text-amber-600 group-hover:underline">Awaiting Delivery</span>
             </button>
 
-            {/* Row 2, Col 1: Delivered Orders */}
+            {/* Card 3: Delivered Orders */}
             <button
               onClick={() => navigate('/delivered-orders')}
-              className="bg-white rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-2xl hover:-translate-y-2 active:scale-[0.97] transition-all duration-300 p-6 sm:p-8 flex flex-col items-center justify-between text-center group cursor-pointer select-none min-h-[210px] sm:min-h-[240px]"
+              className="bg-white rounded-2xl sm:rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] transition-all duration-300 p-3.5 sm:p-6 flex flex-col items-center justify-between text-center group cursor-pointer select-none min-h-[160px] sm:min-h-[200px] lg:min-h-[220px] w-full"
             >
               {/* Top Center Circular Icon Badge */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-9 sm:w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-10 h-10 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1.5 sm:mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-7 sm:w-7 lg:h-8 lg:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-500 tracking-wider uppercase">Delivered Orders</h3>
-              <p className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight my-2">{stats.delivered}</p>
-              <span className="text-xs font-medium text-emerald-600 group-hover:underline">Completed</span>
+              <h3 className="text-[10px] sm:text-xs lg:text-xs font-bold text-slate-500 tracking-wider uppercase">Delivered Orders</h3>
+              <p className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-1 sm:my-2">{stats.delivered}</p>
+              <span className="text-[10px] sm:text-xs font-medium text-emerald-600 group-hover:underline">Completed</span>
             </button>
 
-            {/* Row 2, Col 2: Cancelled Orders */}
+            {/* Card 4: Cancelled Orders */}
             <button
               onClick={() => navigate('/cancelled-orders')}
-              className="bg-white rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-2xl hover:-translate-y-2 active:scale-[0.97] transition-all duration-300 p-6 sm:p-8 flex flex-col items-center justify-between text-center group cursor-pointer select-none min-h-[210px] sm:min-h-[240px]"
+              className="bg-white rounded-2xl sm:rounded-[22px] border border-slate-100/90 shadow-sm hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] transition-all duration-300 p-3.5 sm:p-6 flex flex-col items-center justify-between text-center group cursor-pointer select-none min-h-[160px] sm:min-h-[200px] lg:min-h-[220px] w-full"
             >
               {/* Top Center Circular Icon Badge */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-9 sm:w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-10 h-10 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-1.5 sm:mb-3 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-7 sm:w-7 lg:h-8 lg:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-500 tracking-wider uppercase">Cancelled Orders</h3>
-              <p className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight my-2">{stats.cancelled}</p>
-              <span className="text-xs font-medium text-red-500 group-hover:underline">Cancelled</span>
+              <h3 className="text-[10px] sm:text-xs lg:text-xs font-bold text-slate-500 tracking-wider uppercase">Cancelled Orders</h3>
+              <p className="text-2xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-1 sm:my-2">{stats.cancelled}</p>
+              <span className="text-[10px] sm:text-xs font-medium text-red-500 group-hover:underline">Cancelled</span>
             </button>
 
           </div>

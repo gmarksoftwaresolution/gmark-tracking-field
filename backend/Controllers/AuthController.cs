@@ -30,31 +30,59 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employee = await _context.Employees.FindAsync(request.EmployeeId);
-                
-                if (employee == null || !employee.IsActive)
-                {
-                    return Unauthorized(new { message = "Invalid Password" });
-                }
-
                 var trimmedPassword = request.Password?.Trim();
-                if (string.IsNullOrEmpty(trimmedPassword) || string.IsNullOrEmpty(employee.PasswordHash))
+                if (string.IsNullOrEmpty(trimmedPassword))
                 {
                     return Unauthorized(new { message = "Invalid Password" });
                 }
 
-                bool isValid = false;
-                try
+                NavbharatAgroAPI.Models.Employee matchedEmployee = null;
+
+                // 1. If EmployeeId > 0 is provided, check that specific employee first
+                if (request.EmployeeId > 0)
                 {
-                    isValid = BCrypt.Net.BCrypt.Verify(trimmedPassword, employee.PasswordHash);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "BCrypt verification exception for Employee ID {EmployeeId}", request.EmployeeId);
-                    isValid = false;
+                    var emp = await _context.Employees.FindAsync(request.EmployeeId);
+                    if (emp != null && emp.IsActive && !string.IsNullOrEmpty(emp.PasswordHash))
+                    {
+                        try
+                        {
+                            if (BCrypt.Net.BCrypt.Verify(trimmedPassword, emp.PasswordHash))
+                            {
+                                matchedEmployee = emp;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "BCrypt verification exception for Employee ID {EmployeeId}", request.EmployeeId);
+                        }
+                    }
                 }
 
-                if (!isValid)
+                // 2. If no direct EmployeeId match yet, search all active employees by BCrypt password hash
+                if (matchedEmployee == null)
+                {
+                    var activeEmployees = await _context.Employees
+                        .Where(e => e.IsActive && !string.IsNullOrEmpty(e.PasswordHash))
+                        .ToListAsync();
+
+                    foreach (var emp in activeEmployees)
+                    {
+                        try
+                        {
+                            if (BCrypt.Net.BCrypt.Verify(trimmedPassword, emp.PasswordHash))
+                            {
+                                matchedEmployee = emp;
+                                break;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "BCrypt verification exception for Employee ID {EmployeeId}", emp.Id);
+                        }
+                    }
+                }
+
+                if (matchedEmployee == null)
                 {
                     return Unauthorized(new { message = "Invalid Password" });
                 }
@@ -63,8 +91,8 @@ namespace NavbharatAgroAPI.Controllers
 
                 return Ok(new LoginResponseDto
                 {
-                    EmployeeId = employee.Id,
-                    EmployeeName = employee.Name,
+                    EmployeeId = matchedEmployee.Id,
+                    EmployeeName = matchedEmployee.Name,
                     Token = token,
                     Message = "Login Successful"
                 });

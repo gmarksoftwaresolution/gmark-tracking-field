@@ -14,12 +14,6 @@ import CancelledOrders from './pages/CancelledOrders';
 import RoutesPage from './pages/RoutesPage';
 
 function RootRedirect() {
-  const rememberedName = localStorage.getItem('rememberedEmployeeName') || localStorage.getItem('employeeName');
-  const rememberedId = localStorage.getItem('rememberedEmployeeId') || localStorage.getItem('employeeId');
-
-  if (rememberedName && rememberedId) {
-    return <Navigate to="/employee-password" replace />;
-  }
   return <Navigate to="/welcome" replace />;
 }
 

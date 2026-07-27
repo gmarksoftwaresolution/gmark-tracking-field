@@ -46,22 +46,28 @@ export default function RoutesPage() {
     return defaultRoutes;
   };
 
-  const workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // Detect today's weekday (Default to Monday if Sunday)
+  // Detect today's weekday
   const currentDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  const todayDay = workingDays.includes(currentDayName) ? currentDayName : 'Monday';
+  const todayDay = currentDayName;
 
   const employeeRoutes = getEmployeeRoutes();
 
-  // Order routes so TODAY is first, followed by weekday sequence
+  // Order routes so TODAY is first, followed by 7-day sequence
   const getOrderedRoutes = () => {
-    const todayIndex = workingDays.indexOf(todayDay);
+    const todayIndex = weekDays.indexOf(todayDay);
+    const validTodayIndex = todayIndex !== -1 ? todayIndex : 0;
     const orderedDays = [];
-    for (let i = 0; i < workingDays.length; i++) {
-      orderedDays.push(workingDays[(todayIndex + i) % workingDays.length]);
+    for (let i = 0; i < weekDays.length; i++) {
+      orderedDays.push(weekDays[(validTodayIndex + i) % weekDays.length]);
     }
-    return orderedDays.map(day => employeeRoutes.find(r => r.day === day)).filter(Boolean);
+    return orderedDays.map(day => {
+      if (day === 'Sunday') {
+        return { code: 'SUN', day: 'Sunday', isWeekend: true };
+      }
+      return employeeRoutes.find(r => r.day === day);
+    }).filter(Boolean);
   };
 
   const orderedRoutes = getOrderedRoutes();
@@ -135,6 +141,11 @@ export default function RoutesPage() {
     setSelectedCode(route.code);
     setTargetRoute(route);
     
+    // Do NOT open Start Trip modal if it's Sunday / Weekend
+    if (route.isWeekend || route.day === 'Sunday') {
+      return;
+    }
+
     // Open confirmation modal if trip is not started
     if (tripStatus !== 'Started') {
       setShowStartModal(true);
@@ -416,6 +427,52 @@ export default function RoutesPage() {
             {orderedRoutes.map((route) => {
               const isToday = !isRohit && route.day === todayDay;
               const isSelected = route.code === selectedCode;
+
+              if (route.isWeekend || route.day === 'Sunday') {
+                return (
+                  <div
+                    key="SUN"
+                    onClick={() => handleCardClick(route)}
+                    className={`p-5 sm:p-6 rounded-2xl transition-all duration-300 cursor-pointer select-none text-left relative overflow-hidden ${
+                      isSelected
+                        ? 'bg-blue-50/80 border-2 border-blue-500 shadow-md'
+                        : 'bg-slate-100/90 border border-slate-200 hover:border-slate-300 shadow-xs'
+                    }`}
+                  >
+                    {/* Header Row */}
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-base sm:text-lg font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                          <span>📅</span>
+                          <span>Sunday</span>
+                        </h3>
+                        {isToday ? (
+                          <span className="inline-flex items-center gap-1.5 bg-amber-500 text-white text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                            TODAY (WEEKEND)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center bg-slate-500 text-white text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                            Weekend
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Weekend Message Box */}
+                    <div className="bg-white/90 p-4 rounded-xl border border-slate-200 my-1 space-y-1">
+                      <div className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                        <span>🏖️</span>
+                        <span>Today is Weekend</span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                        No route is assigned for today. Enjoy your day off.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
               const startEnd = getStartEndLabel(route.path);
 
               return (
