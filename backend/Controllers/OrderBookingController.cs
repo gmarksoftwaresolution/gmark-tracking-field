@@ -294,7 +294,7 @@ namespace NavbharatAgroAPI.Controllers
                 {
                     EmployeeId = requestDto.EmployeeId,
                     AssignedBy = requestDto.AssignedBy,
-                    Route = requestDto.Route,
+                    Route = string.IsNullOrWhiteSpace(requestDto.Route) ? "General Route" : requestDto.Route,
                     CustomerName = requestDto.CustomerName,
                     Village = requestDto.Village,
                     MobileNumber = requestDto.MobileNumber,

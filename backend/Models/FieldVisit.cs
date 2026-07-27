@@ -17,7 +17,7 @@ namespace NavbharatAgroAPI.Models
         public string? AssignedBy { get; set; }
 
         [Required]
-        [StringLength(100)]
+        [StringLength(500)]
         public string Route { get; set; } = string.Empty;
 
         [Required]

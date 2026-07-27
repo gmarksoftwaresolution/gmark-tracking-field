@@ -55,13 +55,11 @@ export default function FieldVisits() {
       return;
     }
 
-    const activeRoute = getActiveRoute(currentEmpName, currentEmpId) || 'General Route';
-
     setFormData(prev => ({
       ...prev,
       employeeId: currentEmpId,
       assignedBy: currentEmpName,
-      route: activeRoute
+      route: 'General'
     }));
   }, [navigate]);
 

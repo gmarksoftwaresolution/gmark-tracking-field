@@ -53,13 +53,11 @@ export default function OrderBookings() {
       return;
     }
 
-    const activeRoute = getActiveRoute(currentEmpName, currentEmpId) || 'General Route';
-
     setFormData(prev => ({
       ...prev,
       employeeId: currentEmpId,
       assignedBy: currentEmpName,
-      route: activeRoute
+      route: 'General'
     }));
   }, [navigate]);
 

@@ -12,9 +12,8 @@ namespace NavbharatAgroAPI.DTOs
         [StringLength(100)]
         public string? AssignedBy { get; set; }
 
-        [Required]
-        [StringLength(100)]
-        public string Route { get; set; } = string.Empty;
+        [StringLength(500)]
+        public string? Route { get; set; } = "General Route";
 
         [Required]
         [StringLength(100)]
