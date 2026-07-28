@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import DesktopSidebar from '../components/DesktopSidebar';
-import { startTrip, getEmployee } from '../services/api';
+import { startTrip, stopTrip, getEmployee, saveEmployeeRoute } from '../services/api';
 
 export default function RoutesPage() {
   const navigate = useNavigate();
@@ -77,10 +77,12 @@ export default function RoutesPage() {
 
   // Selected route state
   const [selectedCode, setSelectedCode] = useState(isRohit ? '' : (todayRoute?.code || ''));
+  const [activeRouteCode, setActiveRouteCode] = useState('');
   
-  // Trip status & start modal states
+  // Trip status & start/stop modal states
   const [tripStatus, setTripStatus] = useState('Not Started');
   const [tripStartTime, setTripStartTime] = useState('');
+  const [tripStopTime, setTripStopTime] = useState('');
   const [showStartModal, setShowStartModal] = useState(false);
   const [targetRoute, setTargetRoute] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,11 +96,6 @@ export default function RoutesPage() {
 
   // Load existing trip status & Rohit session route on mount
   useEffect(() => {
-    const savedStatus = localStorage.getItem(`tripStatus_${employeeId}`) || 'Not Started';
-    const savedTime = localStorage.getItem(`tripStartTime_${employeeId}`) || '';
-    setTripStatus(savedStatus);
-    setTripStartTime(savedTime);
-
     if (isRohit) {
       const sessionRouteStr = sessionStorage.getItem('rohitCustomRoute') || localStorage.getItem('rohitCustomRoute');
       if (sessionRouteStr) {
@@ -116,11 +113,29 @@ export default function RoutesPage() {
 
     if (employeeId) {
       getEmployee(employeeId).then(data => {
-        if (data && data.tripStatus) {
-          setTripStatus(data.tripStatus);
-          if (data.tripStartTime) {
-            const formatted = new Date(data.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-            setTripStartTime(formatted);
+        if (data) {
+          const isToday = data.tripStartTime && new Date(data.tripStartTime).toDateString() === new Date().toDateString();
+          if (isToday) {
+            setTripStatus(data.tripStatus || 'Not Started');
+            if (data.selectedRouteCode) {
+              setSelectedCode(data.selectedRouteCode);
+              if (data.tripStatus === 'Started') {
+                setActiveRouteCode(data.selectedRouteCode);
+              }
+            }
+            if (data.tripStartTime) {
+              const formatted = new Date(data.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+              setTripStartTime(formatted);
+            }
+            if (data.tripEndTime) {
+              const formattedEnd = new Date(data.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+              setTripStopTime(formattedEnd);
+            }
+          } else {
+            setTripStatus('Not Started');
+            setTripStartTime('');
+            setTripStopTime('');
+            setActiveRouteCode('');
           }
         }
       }).catch(err => console.error("Error fetching trip status:", err));
@@ -138,18 +153,18 @@ export default function RoutesPage() {
   };
 
   const handleCardClick = (route) => {
-    setSelectedCode(route.code);
-    setTargetRoute(route);
-    
-    // Do NOT open Start Trip modal if it's Sunday / Weekend
-    if (route.isWeekend || route.day === 'Sunday') {
-      return;
+    // Prevent selecting or opening another route while a trip is active
+    if (tripStatus === 'Started') {
+      const currentActive = activeRouteCode || selectedCode;
+      if (currentActive && route.code !== currentActive) {
+        alert("You already have an active trip. Please stop the current trip before starting another route.");
+        return;
+      }
     }
 
-    // Open confirmation modal if trip is not started
-    if (tripStatus !== 'Started') {
-      setShowStartModal(true);
-    }
+    setSelectedCode(route.code);
+    setTargetRoute(route);
+    setShowStartModal(true);
   };
 
   const handleSaveRohitOnly = async (e) => {
@@ -221,6 +236,7 @@ export default function RoutesPage() {
     localStorage.setItem('employeeRoute', routeLabel);
     if (employeeId) localStorage.setItem(`activeRoute_${employeeId}`, routeLabel);
     setSelectedCode('R-CUSTOM');
+    setActiveRouteCode('R-CUSTOM');
 
     setIsSubmitting(true);
     const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -231,18 +247,67 @@ export default function RoutesPage() {
       }
       setTripStatus('Started');
       setTripStartTime(nowTimeStr);
-      localStorage.setItem(`tripStatus_${employeeId}`, 'Started');
-      localStorage.setItem(`tripStartTime_${employeeId}`, nowTimeStr);
       setRohitFeedback(`Trip Started at ${nowTimeStr}!`);
       navigate('/employee-dashboard');
     } catch (err) {
       console.error("Failed to start trip", err);
       setTripStatus('Started');
       setTripStartTime(nowTimeStr);
-      localStorage.setItem(`tripStatus_${employeeId}`, 'Started');
-      localStorage.setItem(`tripStartTime_${employeeId}`, nowTimeStr);
       setRohitFeedback(`Trip Started at ${nowTimeStr}!`);
       navigate('/employee-dashboard');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStopTripDirect = async (e) => {
+    if (e) e.preventDefault();
+    setIsSubmitting(true);
+    const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    try {
+      if (employeeId) {
+        const data = await stopTrip(employeeId);
+        setTripStatus('Not Started');
+        if (data.tripEndTime) {
+          const formattedEnd = new Date(data.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          setTripStopTime(formattedEnd);
+        } else {
+          setTripStopTime(nowTimeStr);
+        }
+      } else {
+        setTripStatus('Not Started');
+        setTripStopTime(nowTimeStr);
+      }
+      setActiveRouteCode('');
+      setShowStartModal(false);
+
+      if (isRohit) {
+        setRohitStartLoc('');
+        setRohitEndLoc('');
+        setRohitFullRoute('');
+        setRohitSavedRoute(null);
+        sessionStorage.removeItem('rohitCustomRoute');
+        localStorage.removeItem('rohitCustomRoute');
+        if (employeeId) localStorage.removeItem(`rohitCustomRoute_${employeeId}`);
+        setRohitFeedback(`Trip Stopped at ${nowTimeStr}! Enter a new route below to start another trip.`);
+      }
+    } catch (err) {
+      console.error("Failed to stop trip", err);
+      setTripStatus('Not Started');
+      setTripStopTime(nowTimeStr);
+      setActiveRouteCode('');
+      setShowStartModal(false);
+
+      if (isRohit) {
+        setRohitStartLoc('');
+        setRohitEndLoc('');
+        setRohitFullRoute('');
+        setRohitSavedRoute(null);
+        sessionStorage.removeItem('rohitCustomRoute');
+        localStorage.removeItem('rohitCustomRoute');
+        if (employeeId) localStorage.removeItem(`rohitCustomRoute_${employeeId}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -258,27 +323,25 @@ export default function RoutesPage() {
     setIsSubmitting(true);
     const nowTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
+    const selectedRouteCode = targetRoute?.code || selectedCode;
     const selectedRouteStr = targetRoute?.path || targetRoute?.code || selectedCode;
     localStorage.setItem('employeeRoute', selectedRouteStr);
     if (employeeId) localStorage.setItem(`activeRoute_${employeeId}`, selectedRouteStr);
 
     try {
       if (employeeId) {
-        await startTrip(employeeId, targetRoute?.code || selectedCode);
+        await startTrip(employeeId, selectedRouteCode);
       }
       setTripStatus('Started');
       setTripStartTime(nowTimeStr);
-      localStorage.setItem(`tripStatus_${employeeId}`, 'Started');
-      localStorage.setItem(`tripStartTime_${employeeId}`, nowTimeStr);
+      setActiveRouteCode(selectedRouteCode);
       setShowStartModal(false);
       navigate('/employee-dashboard');
     } catch (err) {
       console.error("Failed to record start trip", err);
-      // Fallback local update
       setTripStatus('Started');
       setTripStartTime(nowTimeStr);
-      localStorage.setItem(`tripStatus_${employeeId}`, 'Started');
-      localStorage.setItem(`tripStartTime_${employeeId}`, nowTimeStr);
+      setActiveRouteCode(selectedRouteCode);
       setShowStartModal(false);
       navigate('/employee-dashboard');
     } finally {
@@ -300,9 +363,23 @@ export default function RoutesPage() {
                 {displayEmployeeName}'s Schedule
               </span>
               {tripStatus === 'Started' && (
-                <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                  Trip Started {tripStartTime ? `at ${tripStartTime}` : ''}
+                <div className="flex items-center gap-2">
+                  <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                    Trip Started {tripStartTime ? `at ${tripStartTime}` : ''}
+                  </span>
+                  <button
+                    onClick={handleStopTripDirect}
+                    disabled={isSubmitting}
+                    className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-xs transition-all cursor-pointer"
+                  >
+                    {isSubmitting ? 'Stopping...' : 'Stop Trip'}
+                  </button>
+                </div>
+              )}
+              {(tripStatus === 'Stopped' || tripStatus === 'Completed') && (
+                <span className="bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-xs">
+                  Trip Stopped {tripStopTime ? `at ${tripStopTime}` : ''}
                 </span>
               )}
             </div>
@@ -328,98 +405,148 @@ export default function RoutesPage() {
         {/* ROHIT MANUAL ROUTE ENTRY SECTION */}
         {isRohit ? (
           <div className="space-y-6">
-            <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 text-left space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-                    <span>✍️ Enter Today's Route</span>
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Enter your manual route details for today's session</p>
+            {tripStatus === 'Started' ? (
+              /* ACTIVE TRIP VIEW FOR ROHIT */
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-emerald-200 text-left space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="bg-emerald-500 text-white text-xs font-bold px-2.5 py-1 rounded-full animate-pulse flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                        Active Trip Started {tripStartTime ? `at ${tripStartTime}` : ''}
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-extrabold text-slate-900 mt-1">
+                      📍 {rohitSavedRoute?.label || (rohitStartLoc && rohitEndLoc ? `${rohitStartLoc} → ${rohitEndLoc}` : 'Custom Route')}
+                    </h2>
+                    {(rohitFullRoute || rohitSavedRoute?.path) && (
+                      <p className="text-xs text-slate-600 mt-1 font-medium leading-relaxed">
+                        Full Route: {rohitFullRoute || rohitSavedRoute?.path}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                    {todayDay}
+                  </span>
                 </div>
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                  {todayDay}
-                </span>
+
+                {rohitFeedback && (
+                  <div className="p-3.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-between">
+                    <span>{rohitFeedback}</span>
+                    <button onClick={() => setRohitFeedback('')} className="text-blue-500 hover:text-blue-700 font-bold ml-2">✕</button>
+                  </div>
+                )}
+
+                <p className="text-xs text-slate-500 font-medium">
+                  🔒 Trip is currently active. Stop the current trip to enter a new route.
+                </p>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleStopTripDirect}
+                    disabled={isSubmitting}
+                    className="w-full py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer active:scale-95 text-xs sm:text-sm flex items-center justify-center gap-1.5"
+                  >
+                    <span>🛑</span>
+                    <span>{isSubmitting ? 'Stopping...' : 'Stop Trip'}</span>
+                  </button>
+                </div>
               </div>
-
-              {rohitFeedback && (
-                <div className="p-3.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-between">
-                  <span>{rohitFeedback}</span>
-                  <button onClick={() => setRohitFeedback('')} className="text-blue-500 hover:text-blue-700 font-bold ml-2">✕</button>
+            ) : (
+              /* READY STATE FORM FOR ROHIT */
+              <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 text-left space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                      <span>✍️ Enter Today's Route</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Enter your manual route details for today's session</p>
+                  </div>
+                  <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                    {todayDay}
+                  </span>
                 </div>
-              )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {rohitFeedback && (
+                  <div className="p-3.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-between">
+                    <span>{rohitFeedback}</span>
+                    <button onClick={() => setRohitFeedback('')} className="text-blue-500 hover:text-blue-700 font-bold ml-2">✕</button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Start Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Kolhapur"
+                      value={rohitStartLoc}
+                      onChange={(e) => setRohitStartLoc(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      End Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Sangli"
+                      value={rohitEndLoc}
+                      onChange={(e) => setRohitEndLoc(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-slate-800"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Start Location *
+                    Complete Route
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Kolhapur"
-                    value={rohitStartLoc}
-                    onChange={(e) => setRohitStartLoc(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-slate-800"
+                  <textarea
+                    rows="3"
+                    placeholder="e.g. Kolhapur → Hatkanangale → Jaysingpur → Sangli"
+                    value={rohitFullRoute}
+                    onChange={(e) => setRohitFullRoute(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-slate-800 resize-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    End Location *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Sangli"
-                    value={rohitEndLoc}
-                    onChange={(e) => setRohitEndLoc(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-slate-800"
-                  />
+                <div className="flex flex-row items-center gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveRohitOnly}
+                    className="flex-1 py-3 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer active:scale-95 text-xs sm:text-sm"
+                  >
+                    Save
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartTripRohitDirect}
+                    disabled={isSubmitting}
+                    className="flex-1 py-3 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer active:scale-95 text-xs sm:text-sm flex items-center justify-center gap-1"
+                  >
+                    <span>🚀</span>
+                    <span>{isSubmitting ? 'Starting...' : 'Start Trip'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleLaterRohitOnly}
+                    className="flex-1 py-3 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-200 transition-all cursor-pointer active:scale-95 text-xs sm:text-sm"
+                  >
+                    Later
+                  </button>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Complete Route
-                </label>
-                <textarea
-                  rows="3"
-                  placeholder="e.g. Kolhapur → Hatkanangale → Jaysingpur → Sangli"
-                  value={rohitFullRoute}
-                  onChange={(e) => setRohitFullRoute(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-slate-800 resize-none"
-                />
-              </div>
-
-              {/* THREE BUTTONS IN ONE ROW */}
-              <div className="flex flex-row items-center gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={handleSaveRohitOnly}
-                  className="flex-1 py-3 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer active:scale-95 text-xs sm:text-sm"
-                >
-                  Save
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleStartTripRohitDirect}
-                  disabled={isSubmitting}
-                  className="flex-1 py-3 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer active:scale-95 text-xs sm:text-sm flex items-center justify-center gap-1"
-                >
-                  <span>🚀</span>
-                  <span>{isSubmitting ? 'Starting...' : 'Start Trip'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleLaterRohitOnly}
-                  className="flex-1 py-3 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-200 transition-all cursor-pointer active:scale-95 text-xs sm:text-sm"
-                >
-                  Later
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         ) : (
           /* KUNAL, PRUTHVIRAJ & EXISTING EMPLOYEES AUTOMATIC DAY-WISE ROUTE CARDS */
@@ -427,16 +554,28 @@ export default function RoutesPage() {
             {orderedRoutes.map((route) => {
               const isToday = !isRohit && route.day === todayDay;
               const isSelected = route.code === selectedCode;
+              const isTripActive = tripStatus === 'Started';
+              const currentActiveCode = activeRouteCode || selectedCode;
+              const isCurrentActiveRoute = isTripActive && route.code === currentActiveCode;
+              const isOtherRouteDisabled = isTripActive && route.code !== currentActiveCode;
 
               if (route.isWeekend || route.day === 'Sunday') {
                 return (
                   <div
                     key="SUN"
-                    onClick={() => handleCardClick(route)}
-                    className={`p-5 sm:p-6 rounded-2xl transition-all duration-300 cursor-pointer select-none text-left relative overflow-hidden ${
-                      isSelected
-                        ? 'bg-blue-50/80 border-2 border-blue-500 shadow-md'
-                        : 'bg-slate-100/90 border border-slate-200 hover:border-slate-300 shadow-xs'
+                    onClick={() => {
+                      if (isOtherRouteDisabled) {
+                        alert("You already have an active trip. Please stop the current trip before starting another route.");
+                        return;
+                      }
+                      handleCardClick(route);
+                    }}
+                    className={`p-5 sm:p-6 rounded-2xl transition-all duration-300 select-none text-left relative overflow-hidden ${
+                      isOtherRouteDisabled
+                        ? 'opacity-60 cursor-not-allowed bg-slate-100/90 border-slate-200'
+                        : isSelected
+                        ? 'bg-blue-50/80 border-2 border-blue-500 shadow-md cursor-pointer'
+                        : 'bg-slate-100/90 border border-slate-200 hover:border-slate-300 shadow-xs cursor-pointer'
                     }`}
                   >
                     {/* Header Row */}
@@ -454,6 +593,11 @@ export default function RoutesPage() {
                         ) : (
                           <span className="inline-flex items-center bg-slate-500 text-white text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                             Weekend
+                          </span>
+                        )}
+                        {isOtherRouteDisabled && (
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            🔒 Locked (Active Trip)
                           </span>
                         )}
                       </div>
@@ -478,26 +622,62 @@ export default function RoutesPage() {
               return (
                 <div
                   key={route.code}
-                  onClick={() => handleCardClick(route)}
-                  className={`p-5 sm:p-6 rounded-2xl transition-all duration-300 cursor-pointer select-none text-left relative overflow-hidden group hover:-translate-y-1 hover:shadow-xl active:-translate-y-1 active:scale-[1.01] active:shadow-xl ${
-                    isSelected
-                      ? 'bg-blue-50/70 border-2 border-blue-600 shadow-md'
-                      : 'bg-white border border-slate-200 hover:border-blue-300 shadow-sm'
-                  } ${isToday ? 'animate-subtle-pulse' : ''}`}
+                  onClick={() => {
+                    if (isOtherRouteDisabled) {
+                      alert("You already have an active trip. Please stop the current trip before starting another route.");
+                      return;
+                    }
+                    handleCardClick(route);
+                  }}
+                  className={`p-5 sm:p-6 rounded-2xl transition-all duration-300 select-none text-left relative overflow-hidden group ${
+                    isCurrentActiveRoute
+                      ? 'bg-emerald-50/50 border-2 border-emerald-500 shadow-md'
+                      : isOtherRouteDisabled
+                      ? 'bg-slate-50/80 border border-slate-200 opacity-60 cursor-not-allowed'
+                      : isSelected
+                      ? 'bg-blue-50/70 border-2 border-blue-600 shadow-md cursor-pointer hover:-translate-y-1 hover:shadow-xl active:scale-[1.01]'
+                      : 'bg-white border border-slate-200 hover:border-blue-300 shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-xl active:scale-[1.01]'
+                  } ${isToday && !isOtherRouteDisabled ? 'animate-subtle-pulse' : ''}`}
                 >
                   {/* Header Row */}
                   <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 flex-wrap">
                       <h3 className="text-base sm:text-lg font-extrabold text-slate-800 tracking-tight">
                         {route.day}
                       </h3>
                       {isToday && (
-                        <span className="inline-flex items-center gap-1.5 bg-emerald-500 text-white text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full shadow-xs animate-badge-pulse uppercase tracking-wider">
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-500 text-white text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">
                           <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                           TODAY
                         </span>
                       )}
+                      {isCurrentActiveRoute && (
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-600 text-white text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                          ACTIVE TRIP {tripStartTime ? `(${tripStartTime})` : ''}
+                        </span>
+                      )}
+                      {isOtherRouteDisabled && (
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          🔒 Locked (Active Trip in Progress)
+                        </span>
+                      )}
                     </div>
+
+                    {isCurrentActiveRoute && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStopTripDirect(e);
+                        }}
+                        disabled={isSubmitting}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>🛑</span>
+                        <span>{isSubmitting ? 'Stopping...' : 'Stop Trip'}</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Highlighted Start → End Route */}
@@ -528,14 +708,14 @@ export default function RoutesPage() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300 animate-fadeIn">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 transform transition-all duration-300 scale-100 text-center">
             <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
-              <span className="text-2xl">🚀</span>
+              <span className="text-2xl">{tripStatus === 'Started' ? '🛑' : '🚀'}</span>
             </div>
 
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mb-2">
-              Start Today's Trip
+              {tripStatus === 'Started' ? "Stop Today's Trip" : "Start Today's Trip"}
             </h2>
             <p className="text-slate-600 text-sm sm:text-base font-medium mb-6">
-              Would you like to start your trip now?
+              {tripStatus === 'Started' ? "Would you like to stop your trip now?" : "Would you like to start your trip now?"}
             </p>
 
             {/* Selected Route Summary Box */}
@@ -564,16 +744,27 @@ export default function RoutesPage() {
                 disabled={isSubmitting}
                 className="flex-1 py-3 px-4 rounded-xl text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer active:scale-95"
               >
-                Later
+                Close
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmStartTrip}
-                disabled={isSubmitting}
-                className="flex-1 py-3 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
-              >
-                {isSubmitting ? 'Starting...' : 'Start Trip'}
-              </button>
+              {tripStatus === 'Started' ? (
+                <button
+                  type="button"
+                  onClick={handleStopTripDirect}
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 px-4 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  {isSubmitting ? 'Stopping...' : 'Stop Trip'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmStartTrip}
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  {isSubmitting ? 'Starting...' : 'Start Trip'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -10,6 +10,79 @@ import {
   deleteOrderBooking
 } from '../services/api';
 
+const routeCodeMap = {
+  // Kunal Routes
+  'K001': 'Kumbharwada → Kumbharwada',
+  'K002': 'Kumbharwada → Kumbharwada',
+  'K003': 'Kumbharwada → Shengaon',
+  'K004': 'Ku. Walwe → Ku. Walwe',
+  'K005': 'Ku. Walwe → Arjunwada',
+  'K006': 'Ku. Walwe → Ku. Walwe',
+
+  // Pruthviraj Routes
+  'P001': 'Nesari → Waghrali',
+  'P002': 'Kolindre → Gadhinglaj',
+  'P003': 'Inchnal → Bahirewadi',
+  'P004': 'Waghrali → Kalvikatti',
+  'P005': 'Kandeewadi → Yamehatti',
+  'P006': 'Gadhinglaj → Khandal',
+
+  // Default Routes
+  'R001': 'Nagpur → Kamptee',
+  'R002': 'Kamptee → Ramtek',
+  'R003': 'Ramtek → Khapa',
+  'R004': 'Khapa → Nagpur',
+  'R005': 'Nagpur → Butibori',
+  'R006': 'Butibori → Nagpur'
+};
+
+const getStartEndLabel = (pathStr) => {
+  if (!pathStr) return '';
+  const parts = pathStr.split('→').map(p => p.trim());
+  if (parts.length >= 2) {
+    return `${parts[0]} → ${parts[parts.length - 1]}`;
+  }
+  return pathStr;
+};
+
+const formatRouteForDisplay = (rawRoute, empNameClean = '', empId = '') => {
+  const nameLower = (empNameClean || '').toLowerCase();
+
+  // Custom route for Rohit
+  if (nameLower.includes('rohit')) {
+    const rohitRouteStr = localStorage.getItem('rohitCustomRoute') ||
+                           sessionStorage.getItem('rohitCustomRoute') ||
+                           localStorage.getItem(`rohitCustomRoute_${empId}`);
+    if (rohitRouteStr) {
+      try {
+        const parsed = JSON.parse(rohitRouteStr);
+        if (parsed.label) return getStartEndLabel(parsed.label);
+        if (parsed.startLoc && parsed.endLoc) return `${parsed.startLoc} → ${parsed.endLoc}`;
+        if (parsed.path) return getStartEndLabel(parsed.path);
+      } catch (e) {}
+    }
+  }
+
+  // If rawRoute matches a known route code (e.g. K001, P001, etc.)
+  if (rawRoute && routeCodeMap[rawRoute.trim()]) {
+    return routeCodeMap[rawRoute.trim()];
+  }
+
+  // If rawRoute already contains '→' (full path or label)
+  if (rawRoute && rawRoute.includes('→')) {
+    return getStartEndLabel(rawRoute);
+  }
+
+  // Fallbacks if rawRoute is empty / unknown
+  if (nameLower.includes('kunal')) {
+    return 'Kumbharwada → Bidri';
+  } else if (nameLower.includes('pruthviraj') || nameLower.includes('prutivraj')) {
+    return 'Nesari → Waghrali';
+  }
+
+  return (rawRoute && rawRoute !== '--') ? rawRoute : '--';
+};
+
 export default function AdminDashboard({ initialTab }) {
   const navigate = useNavigate();
 
@@ -256,88 +329,7 @@ export default function AdminDashboard({ initialTab }) {
                   </div>
                 ))}
               </div>
-
-              {/* Employee Trip Status Table */}
-              <div className="mt-8 border-t border-slate-100 pt-6">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <span>🚀 Today's Employee Trip Status</span>
-                </h3>
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                      <tr>
-                        <th className="py-3 px-4">Employee</th>
-                        <th className="py-3 px-4">Route</th>
-                        <th className="py-3 px-4">Trip Status</th>
-                        <th className="py-3 px-4">Start Time</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {employees.map(emp => {
-                        const empNameClean = emp.name.replace(/\s+Employee$/i, '').trim();
-                        const localStatus = localStorage.getItem(`tripStatus_${emp.id}`);
-                        const localTime = localStorage.getItem(`tripStartTime_${emp.id}`);
-                        const status = emp.tripStatus && emp.tripStatus !== 'Not Started' ? emp.tripStatus : (localStatus || 'Not Started');
-                        const rawTime = emp.tripStartTime || localTime;
-                        const formattedTime = rawTime
-                          ? (typeof rawTime === 'string' && (rawTime.includes('AM') || rawTime.includes('PM'))
-                              ? rawTime
-                              : new Date(rawTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }))
-                          : '--';
-                        const isStarted = status === 'Started';
-
-                        // Resolve route for display (e.g. Rohit's manual route or assigned route)
-                        let routeDisplay = emp.selectedRouteCode || '--';
-                        if (empNameClean.toLowerCase().includes('rohit')) {
-                          const rohitRouteStr = localStorage.getItem('rohitCustomRoute') || localStorage.getItem(`rohitCustomRoute_${emp.id}`);
-                          if (rohitRouteStr) {
-                            try {
-                              const parsed = JSON.parse(rohitRouteStr);
-                              routeDisplay = parsed.label || `${parsed.startLoc} → ${parsed.endLoc}`;
-                            } catch (e) {
-                              routeDisplay = emp.selectedRouteCode || '--';
-                            }
-                          }
-                        } else if (empNameClean.toLowerCase().includes('kunal')) {
-                          routeDisplay = emp.selectedRouteCode || 'Kumbharwada → Bidri';
-                        } else if (empNameClean.toLowerCase().includes('pruthviraj') || empNameClean.toLowerCase().includes('prutivraj')) {
-                          routeDisplay = emp.selectedRouteCode || 'Nesari → Waghrali';
-                        }
-
-                        return (
-                          <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs">
-                                {emp.name.charAt(0)}
-                              </div>
-                              {empNameClean}
-                            </td>
-                            <td className="py-3.5 px-4 font-semibold text-blue-600">
-                              📍 {routeDisplay}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                                isStarted
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-                              }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${isStarted ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
-                                {isStarted ? 'Started' : 'Not Started'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 font-semibold text-slate-700">
-                              {isStarted ? formattedTime : '--'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
-
-
           </div>
         )}
 
@@ -479,7 +471,7 @@ export default function AdminDashboard({ initialTab }) {
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
                     <tr className="bg-slate-100 text-slate-600">
-                      <th className="p-4 font-semibold">ID</th>
+                      <th className="p-4 font-semibold">Order ID</th>
                       <th className="p-4 font-semibold">Employee ID</th>
                       <th className="p-4 font-semibold">Customer</th>
                       <th className="p-4 font-semibold">Village</th>
@@ -546,49 +538,35 @@ export default function AdminDashboard({ initialTab }) {
                   <tr>
                     <th className="py-3.5 px-4">Employee Name</th>
                     <th className="py-3.5 px-4">Today's Assigned Route</th>
-                    <th className="py-3.5 px-4">Trip Status</th>
                     <th className="py-3.5 px-4">Trip Start Time</th>
-                    <th className="py-3.5 px-4">Current Status</th>
-                    <th className="py-3.5 px-4">Last Login Time</th>
+                    <th className="py-3.5 px-4">Trip Stop Time</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {employees.map(emp => {
                     const empNameClean = emp.name.replace(/\s+Employee$/i, '').trim();
-                    const localStatus = localStorage.getItem(`tripStatus_${emp.id}`);
-                    const localTime = localStorage.getItem(`tripStartTime_${emp.id}`);
-                    const status = emp.tripStatus && emp.tripStatus !== 'Not Started' ? emp.tripStatus : (localStatus || 'Not Started');
-                    const rawTime = emp.tripStartTime || localTime;
-                    const formattedTime = rawTime
-                      ? (typeof rawTime === 'string' && (rawTime.includes('AM') || rawTime.includes('PM'))
-                          ? rawTime
-                          : new Date(rawTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }))
+                    const isTodayDate = (dateStr) => {
+                      if (!dateStr) return false;
+                      const d = new Date(dateStr);
+                      if (isNaN(d.getTime())) return false;
+                      const today = new Date();
+                      return d.getFullYear() === today.getFullYear() &&
+                             d.getMonth() === today.getMonth() &&
+                             d.getDate() === today.getDate();
+                    };
+
+                    const tripIsToday = isTodayDate(emp.tripStartTime);
+
+                    const formattedStartTime = (tripIsToday && emp.tripStartTime)
+                      ? new Date(emp.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
                       : '--';
-                    const isStarted = status === 'Started';
 
-                    // Resolve route for display
-                    let routeDisplay = emp.selectedRouteCode || '--';
-                    if (empNameClean.toLowerCase().includes('rohit')) {
-                      const rohitRouteStr = localStorage.getItem('rohitCustomRoute') || localStorage.getItem(`rohitCustomRoute_${emp.id}`);
-                      if (rohitRouteStr) {
-                        try {
-                          const parsed = JSON.parse(rohitRouteStr);
-                          routeDisplay = parsed.label || `${parsed.startLoc} → ${parsed.endLoc}`;
-                        } catch (e) {
-                          routeDisplay = emp.selectedRouteCode || '--';
-                        }
-                      }
-                    } else if (empNameClean.toLowerCase().includes('kunal')) {
-                      routeDisplay = emp.selectedRouteCode || 'Kumbharwada → Bidri';
-                    } else if (empNameClean.toLowerCase().includes('pruthviraj') || empNameClean.toLowerCase().includes('prutivraj')) {
-                      routeDisplay = emp.selectedRouteCode || 'Nesari → Waghrali';
-                    }
+                    const formattedStopTime = (tripIsToday && emp.tripEndTime)
+                      ? new Date(emp.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                      : '--';
 
-                    // Online / Offline Status logic
-                    const isOnline = isStarted || (localStorage.getItem('rememberedEmployeeName') || '').toLowerCase().includes(empNameClean.toLowerCase());
-
-                    // Last Login Time logic
-                    const lastLogin = localStorage.getItem(`lastLogin_${emp.id}`) || (isStarted ? `Today, ${formattedTime}` : 'Today, 08:30 AM');
+                    // Resolve route for display (e.g. Rohit's manual route or predefined Start -> End route)
+                    const routeDisplay = formatRouteForDisplay(emp.selectedRouteCode, empNameClean, emp.id);
 
                     return (
                       <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
@@ -603,34 +581,12 @@ export default function AdminDashboard({ initialTab }) {
                           📍 {routeDisplay}
                         </td>
 
-                        <td className="py-3.5 px-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                            isStarted
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isStarted ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
-                            {isStarted ? 'Started' : 'Not Started'}
-                          </span>
+                        <td className="py-3.5 px-4 font-semibold text-slate-700">
+                          {formattedStartTime}
                         </td>
 
                         <td className="py-3.5 px-4 font-semibold text-slate-700">
-                          {isStarted ? formattedTime : '--'}
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                            isOnline
-                              ? 'bg-green-50 text-green-700 border border-green-200'
-                              : 'bg-slate-100 text-slate-500 border border-slate-200'
-                          }`}>
-                            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-slate-400'}`} />
-                            {isOnline ? 'Online' : 'Offline'}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-xs font-medium text-slate-600">
-                          {lastLogin}
+                          {formattedStopTime}
                         </td>
                       </tr>
                     );

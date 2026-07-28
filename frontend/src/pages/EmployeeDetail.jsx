@@ -222,19 +222,49 @@ export default function EmployeeDetail() {
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
             <h3 className="text-sm font-medium text-slate-500 mb-1">Trip Status</h3>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mt-1 ${
-              (employee?.tripStatus || localStorage.getItem(`tripStatus_${employee?.id}`)) === 'Started'
-                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                : 'bg-slate-100 text-slate-600 border border-slate-200'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${(employee?.tripStatus || localStorage.getItem(`tripStatus_${employee?.id}`)) === 'Started' ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
-              {(employee?.tripStatus || localStorage.getItem(`tripStatus_${employee?.id}`)) === 'Started' ? 'Started' : 'Not Started'}
-            </span>
-            {(employee?.tripStatus || localStorage.getItem(`tripStatus_${employee?.id}`)) === 'Started' && (
-              <span className="text-xs text-slate-500 font-medium mt-1">
-                Start Time: {employee?.tripStartTime ? new Date(employee.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (localStorage.getItem(`tripStartTime_${employee?.id}`) || '--')}
-              </span>
-            )}
+            {(() => {
+              const isTodayDate = (dateStr) => {
+                if (!dateStr) return false;
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return false;
+                const today = new Date();
+                return d.getFullYear() === today.getFullYear() &&
+                       d.getMonth() === today.getMonth() &&
+                       d.getDate() === today.getDate();
+              };
+              const tripIsToday = isTodayDate(employee?.tripStartTime);
+              const status = tripIsToday ? (employee?.tripStatus || 'Not Started') : 'Not Started';
+              const isStarted = status === 'Started';
+              const isStopped = status === 'Stopped' || status === 'Completed';
+              const startTimeFormatted = tripIsToday && employee?.tripStartTime ? new Date(employee.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
+              const endTimeFormatted = tripIsToday && employee?.tripEndTime ? new Date(employee.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
+
+              return (
+                <>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mt-1 ${
+                    isStarted
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : isStopped
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isStarted ? 'bg-emerald-500 animate-ping' : isStopped ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                    {isStarted ? 'Started' : isStopped ? 'Stopped' : 'Not Started'}
+                  </span>
+                  {isStarted && (
+                    <span className="text-xs text-slate-500 font-medium mt-1">
+                      Start Time: {startTimeFormatted}
+                    </span>
+                  )}
+                  {isStopped && (
+                    <div className="text-xs text-slate-500 font-medium mt-1 flex flex-col items-center gap-0.5">
+                      <span>Start: {startTimeFormatted}</span>
+                      <span>Stop: {endTimeFormatted}</span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">

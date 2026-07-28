@@ -50,19 +50,22 @@ namespace NavbharatAgroAPI.Controllers
                     .OrderBy(e => e.Id)
                     .ToList();
 
-                return Ok(uniqueEmployees.Select(e => new EmployeeResponseDto
-                {
-                    Id = e.Id,
-                    Name = e.Name,
-                    EmployeeCode = e.EmployeeCode,
-                    MobileNumber = e.MobileNumber,
-                    AssignedArea = e.AssignedArea,
-                    TripStatus = e.TripStatus ?? "Not Started",
-                    TripStartTime = e.TripStartTime,
-                    TripEndTime = e.TripEndTime,
-                    SelectedRouteCode = e.SelectedRouteCode,
-                    CreatedAt = e.CreatedAt,
-                    Message = "Retrieved Successfully"
+                return Ok(uniqueEmployees.Select(e => {
+                    bool isToday = e.TripStartTime.HasValue && e.TripStartTime.Value.ToLocalTime().Date == DateTime.Now.Date;
+                    return new EmployeeResponseDto
+                    {
+                        Id = e.Id,
+                        Name = e.Name,
+                        EmployeeCode = e.EmployeeCode,
+                        MobileNumber = e.MobileNumber,
+                        AssignedArea = e.AssignedArea,
+                        TripStatus = isToday ? (e.TripStatus ?? "Not Started") : "Not Started",
+                        TripStartTime = isToday ? e.TripStartTime : null,
+                        TripEndTime = isToday ? e.TripEndTime : null,
+                        SelectedRouteCode = e.SelectedRouteCode,
+                        CreatedAt = e.CreatedAt,
+                        Message = "Retrieved Successfully"
+                    };
                 }));
             }
             catch (Exception ex)
@@ -93,6 +96,8 @@ namespace NavbharatAgroAPI.Controllers
                     return NotFound(new { message = $"Employee with Id {id} not found." });
                 }
 
+                bool isToday = employee.TripStartTime.HasValue && employee.TripStartTime.Value.ToLocalTime().Date == DateTime.Now.Date;
+
                 return Ok(new EmployeeResponseDto
                 {
                     Id = employee.Id,
@@ -100,9 +105,9 @@ namespace NavbharatAgroAPI.Controllers
                     EmployeeCode = employee.EmployeeCode,
                     MobileNumber = employee.MobileNumber,
                     AssignedArea = employee.AssignedArea,
-                    TripStatus = employee.TripStatus ?? "Not Started",
-                    TripStartTime = employee.TripStartTime,
-                    TripEndTime = employee.TripEndTime,
+                    TripStatus = isToday ? (employee.TripStatus ?? "Not Started") : "Not Started",
+                    TripStartTime = isToday ? employee.TripStartTime : null,
+                    TripEndTime = isToday ? employee.TripEndTime : null,
                     SelectedRouteCode = employee.SelectedRouteCode,
                     CreatedAt = employee.CreatedAt,
                     Message = "Retrieved Successfully"
@@ -292,7 +297,8 @@ namespace NavbharatAgroAPI.Controllers
                 }
 
                 employee.TripStatus = "Started";
-                employee.TripStartTime = DateTime.Now;
+                employee.TripStartTime = DateTime.UtcNow;
+                employee.TripEndTime = null;
                 if (!string.IsNullOrWhiteSpace(request?.RouteCode))
                 {
                     employee.SelectedRouteCode = request.RouteCode;
@@ -323,6 +329,47 @@ namespace NavbharatAgroAPI.Controllers
         }
 
         /// <summary>
+        /// Stops trip for an employee and records end time.
+        /// </summary>
+        [HttpPut("{id}/stop-trip")]
+        public async Task<ActionResult<EmployeeResponseDto>> StopTrip(int id)
+        {
+            try
+            {
+                var employee = await _context.Employees.FindAsync(id);
+                if (employee == null)
+                {
+                    return NotFound(new { message = $"Employee with Id {id} not found." });
+                }
+
+                employee.TripStatus = "Stopped";
+                employee.TripEndTime = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new EmployeeResponseDto
+                {
+                    Id = employee.Id,
+                    Name = employee.Name,
+                    EmployeeCode = employee.EmployeeCode,
+                    MobileNumber = employee.MobileNumber,
+                    AssignedArea = employee.AssignedArea,
+                    TripStatus = employee.TripStatus,
+                    TripStartTime = employee.TripStartTime,
+                    TripEndTime = employee.TripEndTime,
+                    SelectedRouteCode = employee.SelectedRouteCode,
+                    CreatedAt = employee.CreatedAt,
+                    Message = "Trip Stopped Successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while stopping trip for employee Id {Id}.", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
+        }
+
+        /// <summary>
         /// Saves custom route for an employee without starting the trip.
         /// </summary>
         [HttpPut("{id}/save-route")]
@@ -343,6 +390,8 @@ namespace NavbharatAgroAPI.Controllers
 
                 await _context.SaveChangesAsync();
 
+                bool isToday = employee.TripStartTime.HasValue && employee.TripStartTime.Value.ToLocalTime().Date == DateTime.Now.Date;
+
                 return Ok(new EmployeeResponseDto
                 {
                     Id = employee.Id,
@@ -350,9 +399,9 @@ namespace NavbharatAgroAPI.Controllers
                     EmployeeCode = employee.EmployeeCode,
                     MobileNumber = employee.MobileNumber,
                     AssignedArea = employee.AssignedArea,
-                    TripStatus = employee.TripStatus ?? "Not Started",
-                    TripStartTime = employee.TripStartTime,
-                    TripEndTime = employee.TripEndTime,
+                    TripStatus = isToday ? (employee.TripStatus ?? "Not Started") : "Not Started",
+                    TripStartTime = isToday ? employee.TripStartTime : null,
+                    TripEndTime = isToday ? employee.TripEndTime : null,
                     SelectedRouteCode = employee.SelectedRouteCode,
                     CreatedAt = employee.CreatedAt,
                     Message = "Route Saved Successfully"
