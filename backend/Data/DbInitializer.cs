@@ -11,15 +11,23 @@ namespace NavbharatAgroAPI.Data
         {
             if (context == null) return;
 
-            // Ensure all required columns exist in PostgreSQL Employees table BEFORE any EF Core LINQ queries run
+            // Ensure table and columns exist in PostgreSQL BEFORE any EF Core LINQ queries run
             try
             {
                 context.Database.ExecuteSqlRaw(@"
-                    ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""SelectedRouteCode"" text NULL;
-                    ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""TripStatus"" text NULL;
-                    ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""TripStartTime"" timestamp with time zone NULL;
-                    ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""TripEndTime"" timestamp with time zone NULL;
-                    ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""AssignedArea"" text NULL;
+                    DO $$
+                    BEGIN
+                        IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'Employees') AND NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'SalesEmployees') THEN
+                            ALTER TABLE ""Employees"" RENAME TO ""SalesEmployees"";
+                        END IF;
+                    END $$;
+                    
+                    ALTER TABLE ""SalesEmployees"" ADD COLUMN IF NOT EXISTS ""SelectedRouteCode"" text NULL;
+                    ALTER TABLE ""SalesEmployees"" ADD COLUMN IF NOT EXISTS ""TripStatus"" text NULL;
+                    ALTER TABLE ""SalesEmployees"" ADD COLUMN IF NOT EXISTS ""TripStartTime"" timestamp with time zone NULL;
+                    ALTER TABLE ""SalesEmployees"" ADD COLUMN IF NOT EXISTS ""TripEndTime"" timestamp with time zone NULL;
+                    ALTER TABLE ""SalesEmployees"" ADD COLUMN IF NOT EXISTS ""AssignedArea"" text NULL;
+                    ALTER TABLE ""SalesEmployees"" ADD COLUMN IF NOT EXISTS ""EmployeeMasterId"" integer NULL;
                 ");
             }
             catch (Exception ex)
@@ -28,30 +36,30 @@ namespace NavbharatAgroAPI.Data
             }
 
             // Explicitly remove incorrect record Prutivraj (EmployeeCode: EMP002 or Name: Prutivraj)
-var incorrectPrutivraj = context.Employees
-    .AsEnumerable()
-    .Where(e =>
-        e.EmployeeCode == "EMP002" ||
-        e.Name.Trim().Equals("Prutivraj", StringComparison.OrdinalIgnoreCase) ||
-        (e.Name.ToLower().Contains("prutivraj") &&
-         !e.Name.ToLower().Contains("pruthviraj"))
-    )
-    .ToList();
+            var incorrectPrutivraj = context.SalesEmployees
+                .AsEnumerable()
+                .Where(e =>
+                    e.EmployeeCode == "EMP002" ||
+                    e.Name.Trim().Equals("Prutivraj", StringComparison.OrdinalIgnoreCase) ||
+                    (e.Name.ToLower().Contains("prutivraj") &&
+                     !e.Name.ToLower().Contains("pruthviraj"))
+                )
+                .ToList();
             if (incorrectPrutivraj.Any())
             {
-                context.Employees.RemoveRange(incorrectPrutivraj);
+                context.SalesEmployees.RemoveRange(incorrectPrutivraj);
                 context.SaveChanges();
             }
 
-            // Remove any other duplicate employees with exact same normalized name
-            var allEmps = context.Employees.ToList();
+            // Remove duplicate sales employees with exact same normalized name
+            var allEmps = context.SalesEmployees.ToList();
             var seenNames = new System.Collections.Generic.HashSet<string>();
             foreach (var emp in allEmps)
             {
                 var cleanName = emp.Name.Replace(" Employee", "", StringComparison.OrdinalIgnoreCase).Trim().ToLower();
                 if (seenNames.Contains(cleanName))
                 {
-                    context.Employees.Remove(emp);
+                    context.SalesEmployees.Remove(emp);
                 }
                 else
                 {
@@ -61,10 +69,10 @@ var incorrectPrutivraj = context.Employees
             context.SaveChanges();
 
             // Ensure Kunal exists and update PasswordHash
-            var kunal = context.Employees.FirstOrDefault(e => e.Name.ToLower().Contains("kunal") || e.EmployeeCode.ToLower().Contains("k001"));
+            var kunal = context.SalesEmployees.FirstOrDefault(e => e.Name.ToLower().Contains("kunal") || e.EmployeeCode.ToLower().Contains("k001"));
             if (kunal == null)
             {
-                context.Employees.Add(new Employee
+                context.SalesEmployees.Add(new SalesEmployee
                 {
                     Id = 1,
                     Name = "Kunal",
@@ -83,10 +91,10 @@ var incorrectPrutivraj = context.Employees
             }
 
             // Ensure Pruthviraj exists and update PasswordHash
-            var pruthviraj = context.Employees.FirstOrDefault(e => e.Name.ToLower().Contains("pruthviraj") || e.EmployeeCode.ToLower().Contains("p001"));
+            var pruthviraj = context.SalesEmployees.FirstOrDefault(e => e.Name.ToLower().Contains("pruthviraj") || e.EmployeeCode.ToLower().Contains("p001"));
             if (pruthviraj == null)
             {
-                context.Employees.Add(new Employee
+                context.SalesEmployees.Add(new SalesEmployee
                 {
                     Id = 2,
                     Name = "Pruthviraj",
@@ -105,10 +113,10 @@ var incorrectPrutivraj = context.Employees
             }
 
             // Ensure Rohit exists and update PasswordHash
-            var rohit = context.Employees.FirstOrDefault(e => e.Name.ToLower().Contains("rohit") || e.EmployeeCode.ToLower().Contains("r001"));
+            var rohit = context.SalesEmployees.FirstOrDefault(e => e.Name.ToLower().Contains("rohit") || e.EmployeeCode.ToLower().Contains("r001"));
             if (rohit == null)
             {
-                context.Employees.Add(new Employee
+                context.SalesEmployees.Add(new SalesEmployee
                 {
                     Id = 3,
                     Name = "Rohit",
@@ -124,6 +132,57 @@ var incorrectPrutivraj = context.Employees
             {
                 rohit.EmployeeCode = "R001";
                 rohit.PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@r001");
+            }
+
+            context.SaveChanges();
+
+            // SYNC STEP: Auto-create missing EmployeeMaster records for existing SalesEmployees
+            var salesList = context.SalesEmployees.ToList();
+            var salesDept = context.Departments.FirstOrDefault(d => d.Name.ToLower() == "sales");
+            int salesDeptId = salesDept?.Id ?? 1;
+
+            foreach (var sEmp in salesList)
+            {
+                // Check if an EmployeeMaster record exists for this SalesEmployee
+                EmployeeMaster? master = null;
+
+                if (sEmp.EmployeeMasterId.HasValue)
+                {
+                    master = context.EmployeeMasters.FirstOrDefault(em => em.Id == sEmp.EmployeeMasterId.Value);
+                }
+
+                if (master == null)
+                {
+                    master = context.EmployeeMasters.FirstOrDefault(em => em.EmployeeCode.ToLower() == sEmp.EmployeeCode.ToLower());
+                }
+
+                if (master == null)
+                {
+                    // Create missing EmployeeMaster record once
+                    master = new EmployeeMaster
+                    {
+                        EmployeeCode = sEmp.EmployeeCode,
+                        EmployeeId = $"EMP-2026-{sEmp.EmployeeCode}",
+                        FirstName = sEmp.Name,
+                        LastName = ".",
+                        MobileNumber = sEmp.MobileNumber,
+                        DepartmentId = salesDeptId,
+                        DepartmentName = "Sales",
+                        BranchName = sEmp.AssignedArea ?? "Head Office",
+                        PasswordHash = sEmp.PasswordHash,
+                        EmployeeStatus = sEmp.IsActive ? "Active" : "Inactive",
+                        CreatedAt = sEmp.CreatedAt
+                    };
+
+                    context.EmployeeMasters.Add(master);
+                    context.SaveChanges();
+                }
+
+                // Ensure FK link is set
+                if (sEmp.EmployeeMasterId != master.Id)
+                {
+                    sEmp.EmployeeMasterId = master.Id;
+                }
             }
 
             context.SaveChanges();

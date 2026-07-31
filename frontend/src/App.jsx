@@ -30,7 +30,9 @@ function App() {
         <Route path="/pending-orders" element={<PendingOrders />} />
         <Route path="/delivered-orders" element={<DeliveredOrders />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/employee-status" element={<AdminDashboard initialTab="employee-status" />} />
+        <Route path="/admin-dashboard/:module" element={<AdminDashboard />} />
+        <Route path="/admin-dashboard/:module/:submodule" element={<AdminDashboard />} />
+        <Route path="/admin/employee-status" element={<AdminDashboard initialModule="reports" initialTab="employee-status" />} />
         <Route path="/admin-dashboard/employee/:id" element={<EmployeeDetail />} />
         <Route path="/order-bookings" element={<OrderBookings />} />
         <Route path="/field-visits" element={<FieldVisits />} />

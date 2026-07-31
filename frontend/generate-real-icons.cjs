@@ -4,7 +4,7 @@ const fs = require('fs');
 async function generateIcons() {
     try {
         console.log('Loading image...');
-        const image = await Jimp.read('public/navbharat-logo-new.png');
+        const image = await Jimp.read('public/gmark-logo.png');
         
         console.log('Generating 192x192...');
         const img192 = image.clone();

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NavbharatAgroAPI.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NavbharatAgroAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260730114724_AddEmployeeMasterAndLookups")]
+    partial class AddEmployeeMasterAndLookups
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -76,72 +79,6 @@ namespace NavbharatAgroAPI.Migrations
                             IsActive = true,
                             Name = "North Branch"
                         });
-                });
-
-            modelBuilder.Entity("NavbharatAgroAPI.Models.CustomerMaster", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Address")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CustomerCategory")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomerCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomerId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomerName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("District")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MobileNumber")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Pincode")
-                        .HasColumnType("text");
-
-                    b.Property<string>("State")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Taluka")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Village")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerCode")
-                        .IsUnique();
-
-                    b.HasIndex("CustomerId")
-                        .IsUnique();
-
-                    b.ToTable("CustomerMasters");
                 });
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.Department", b =>
@@ -268,6 +205,66 @@ namespace NavbharatAgroAPI.Migrations
                             IsActive = true,
                             Name = "Operations Coordinator"
                         });
+                });
+
+            modelBuilder.Entity("NavbharatAgroAPI.Models.Employee", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AssignedArea")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("EmployeeMasterId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MobileNumber")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SelectedRouteCode")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("TripEndTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("TripStartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TripStatus")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeCode")
+                        .IsUnique();
+
+                    b.HasIndex("EmployeeMasterId");
+
+                    b.HasIndex("MobileNumber");
+
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.EmployeeMaster", b =>
@@ -922,64 +919,14 @@ namespace NavbharatAgroAPI.Migrations
                     b.ToTable("RouteMasters");
                 });
 
-            modelBuilder.Entity("NavbharatAgroAPI.Models.SalesEmployee", b =>
+            modelBuilder.Entity("NavbharatAgroAPI.Models.Employee", b =>
                 {
-                    b.Property<int>("Id")
-                        .HasColumnType("integer");
+                    b.HasOne("NavbharatAgroAPI.Models.EmployeeMaster", "EmployeeMaster")
+                        .WithMany()
+                        .HasForeignKey("EmployeeMasterId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Property<string>("AssignedArea")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EmployeeCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("EmployeeMasterId")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("MobileNumber")
-                        .IsRequired()
-                        .HasMaxLength(15)
-                        .HasColumnType("character varying(15)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SelectedRouteCode")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("TripEndTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("TripStartTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("TripStatus")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmployeeCode")
-                        .IsUnique();
-
-                    b.HasIndex("EmployeeMasterId");
-
-                    b.HasIndex("MobileNumber");
-
-                    b.ToTable("SalesEmployees", (string)null);
+                    b.Navigation("EmployeeMaster");
                 });
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.EmployeeMaster", b =>
@@ -1011,7 +958,7 @@ namespace NavbharatAgroAPI.Migrations
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.FieldVisit", b =>
                 {
-                    b.HasOne("NavbharatAgroAPI.Models.SalesEmployee", "Employee")
+                    b.HasOne("NavbharatAgroAPI.Models.Employee", "Employee")
                         .WithMany("FieldVisits")
                         .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -1027,7 +974,7 @@ namespace NavbharatAgroAPI.Migrations
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.OrderBooking", b =>
                 {
-                    b.HasOne("NavbharatAgroAPI.Models.SalesEmployee", "Employee")
+                    b.HasOne("NavbharatAgroAPI.Models.Employee", "Employee")
                         .WithMany("OrderBookings")
                         .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -1048,7 +995,7 @@ namespace NavbharatAgroAPI.Migrations
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.RouteMaster", b =>
                 {
-                    b.HasOne("NavbharatAgroAPI.Models.SalesEmployee", "AssignedEmployee")
+                    b.HasOne("NavbharatAgroAPI.Models.Employee", "AssignedEmployee")
                         .WithMany()
                         .HasForeignKey("AssignedEmployeeId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -1056,26 +1003,16 @@ namespace NavbharatAgroAPI.Migrations
                     b.Navigation("AssignedEmployee");
                 });
 
-            modelBuilder.Entity("NavbharatAgroAPI.Models.SalesEmployee", b =>
+            modelBuilder.Entity("NavbharatAgroAPI.Models.Employee", b =>
                 {
-                    b.HasOne("NavbharatAgroAPI.Models.EmployeeMaster", "EmployeeMaster")
-                        .WithMany()
-                        .HasForeignKey("EmployeeMasterId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                    b.Navigation("FieldVisits");
 
-                    b.Navigation("EmployeeMaster");
+                    b.Navigation("OrderBookings");
                 });
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.OrderBooking", b =>
                 {
                     b.Navigation("OrderProducts");
-                });
-
-            modelBuilder.Entity("NavbharatAgroAPI.Models.SalesEmployee", b =>
-                {
-                    b.Navigation("FieldVisits");
-
-                    b.Navigation("OrderBookings");
                 });
 #pragma warning restore 612, 618
         }

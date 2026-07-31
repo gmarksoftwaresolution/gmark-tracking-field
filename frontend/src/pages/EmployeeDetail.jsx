@@ -12,6 +12,78 @@ import {
   deleteFieldVisit
 } from '../services/api';
 
+const routeCodeMap = {
+  // Kunal Routes
+  'K001': 'Kumbharwada → Kumbharwada',
+  'K002': 'Kumbharwada → Kumbharwada',
+  'K003': 'Kumbharwada → Shengaon',
+  'K004': 'Ku. Walwe → Ku. Walwe',
+  'K005': 'Ku. Walwe → Arjunwada',
+  'K006': 'Ku. Walwe → Ku. Walwe',
+
+  // Pruthviraj Routes
+  'P001': 'Nesari → Waghrali',
+  'P002': 'Kolindre → Gadhinglaj',
+  'P003': 'Inchnal → Bahirewadi',
+  'P004': 'Waghrali → Kalvikatti',
+  'P005': 'Kandeewadi → Yamehatti',
+  'P006': 'Gadhinglaj → Khandal',
+
+  // Default Routes
+  'R001': 'Nagpur → Kamptee',
+  'R002': 'Kamptee → Ramtek',
+  'R003': 'Ramtek → Khapa',
+  'R004': 'Khapa → Nagpur',
+  'R005': 'Nagpur → Butibori',
+  'R006': 'Butibori → Nagpur'
+};
+
+const getStartEndLabel = (pathStr) => {
+  if (!pathStr) return '';
+  const parts = pathStr.split('→').map(p => p.trim());
+  if (parts.length >= 2) {
+    return `${parts[0]} → ${parts[parts.length - 1]}`;
+  }
+  return pathStr;
+};
+
+const resolveSelectedRoute = (emp) => {
+  if (!emp) return 'Not Set';
+  const nameLower = (emp.name || '').toLowerCase();
+
+  // Check Rohit's manual route first if employee is Rohit
+  if (nameLower.includes('rohit')) {
+    const rohitRouteStr = localStorage.getItem('rohitCustomRoute') ||
+                           sessionStorage.getItem('rohitCustomRoute') ||
+                           localStorage.getItem(`rohitCustomRoute_${emp.id}`);
+    if (rohitRouteStr) {
+      try {
+        const parsed = JSON.parse(rohitRouteStr);
+        if (parsed.label) return getStartEndLabel(parsed.label);
+        if (parsed.startLoc && parsed.endLoc) return `${parsed.startLoc} → ${parsed.endLoc}`;
+        if (parsed.path) return getStartEndLabel(parsed.path);
+      } catch (e) {}
+    }
+  }
+
+  const rawRoute = emp.selectedRouteCode;
+  if (!rawRoute || rawRoute.trim() === '' || rawRoute === '--') {
+    return 'Not Set';
+  }
+
+  // If rawRoute matches a known route code (e.g. K001, P001, P002, etc.)
+  if (routeCodeMap[rawRoute.trim()]) {
+    return routeCodeMap[rawRoute.trim()];
+  }
+
+  // If rawRoute contains '→' (path string or custom route label)
+  if (rawRoute.includes('→')) {
+    return getStartEndLabel(rawRoute);
+  }
+
+  return rawRoute;
+};
+
 export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -130,8 +202,8 @@ export default function EmployeeDetail() {
     );
   }
 
-  // Derive selected route from most recent activity
-  const selectedRoute = pendingOrders[0]?.route || fieldVisits[0]?.route || deliveredOrders[0]?.route || 'Not Set';
+  // Derive currently selected route for this employee
+  const selectedRoute = resolveSelectedRoute(employee);
   
   // Extract values, fallback to 0 if report missing
   const todaysOrders = dailyReport?.totalOrders || 0;
@@ -218,56 +290,9 @@ export default function EmployeeDetail() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 -mt-10 mb-12 relative z-10 space-y-8">
         
         {/* Info & Summary Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Trip Status</h3>
-            {(() => {
-              const isTodayDate = (dateStr) => {
-                if (!dateStr) return false;
-                const d = new Date(dateStr);
-                if (isNaN(d.getTime())) return false;
-                const today = new Date();
-                return d.getFullYear() === today.getFullYear() &&
-                       d.getMonth() === today.getMonth() &&
-                       d.getDate() === today.getDate();
-              };
-              const tripIsToday = isTodayDate(employee?.tripStartTime);
-              const status = tripIsToday ? (employee?.tripStatus || 'Not Started') : 'Not Started';
-              const isStarted = status === 'Started';
-              const isStopped = status === 'Stopped' || status === 'Completed';
-              const startTimeFormatted = tripIsToday && employee?.tripStartTime ? new Date(employee.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
-              const endTimeFormatted = tripIsToday && employee?.tripEndTime ? new Date(employee.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
-
-              return (
-                <>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mt-1 ${
-                    isStarted
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      : isStopped
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${isStarted ? 'bg-emerald-500 animate-ping' : isStopped ? 'bg-amber-500' : 'bg-slate-400'}`} />
-                    {isStarted ? 'Started' : isStopped ? 'Stopped' : 'Not Started'}
-                  </span>
-                  {isStarted && (
-                    <span className="text-xs text-slate-500 font-medium mt-1">
-                      Start Time: {startTimeFormatted}
-                    </span>
-                  )}
-                  {isStopped && (
-                    <div className="text-xs text-slate-500 font-medium mt-1 flex flex-col items-center gap-0.5">
-                      <span>Start: {startTimeFormatted}</span>
-                      <span>Stop: {endTimeFormatted}</span>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center sm:col-span-2 lg:col-span-2 transform transition-transform hover:-translate-y-1">
             <h3 className="text-sm font-medium text-slate-500 mb-1">Selected Route</h3>
             <p className="text-xl font-bold text-slate-800 text-center truncate w-full">{selectedRoute}</p>
           </div>
@@ -297,7 +322,7 @@ export default function EmployeeDetail() {
             <p className="text-3xl font-bold text-slate-800">₹{monthlySales}</p>
           </div>
 
-          <div className="bg-purple-600 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-center items-center md:col-span-2 lg:col-span-2 transform transition-transform hover:-translate-y-1">
+          <div className="bg-purple-600 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
             <h3 className="text-sm font-medium text-purple-100 mb-1">Total Field Visits</h3>
             <p className="text-4xl font-bold">{fieldVisits.length}</p>
           </div>

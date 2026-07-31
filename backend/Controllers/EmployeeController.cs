@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace NavbharatAgroAPI.Controllers
 {
     /// <summary>
-    /// Manages Employee records in the Navbharat Agro system.
+    /// Manages Sales Employee operational records in the Navbharat Agro system.
     /// </summary>
     [Route("api/employees")]
     [ApiController]
@@ -29,9 +29,8 @@ namespace NavbharatAgroAPI.Controllers
         }
 
         /// <summary>
-        /// Retrieves a list of all employees.
+        /// Retrieves a list of all sales employees.
         /// </summary>
-        /// <returns>A list of EmployeeResponseDto.</returns>
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<EmployeeResponseDto>))]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -39,7 +38,7 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employees = await _context.Employees
+                var employees = await _context.SalesEmployees
                     .Where(e => e.EmployeeCode != "EMP002" && (e.Name == null || !e.Name.ToLower().Contains("prutivraj")))
                     .ToListAsync();
 
@@ -76,10 +75,8 @@ namespace NavbharatAgroAPI.Controllers
         }
 
         /// <summary>
-        /// Retrieves a specific employee by their unique ID.
+        /// Retrieves a specific sales employee by their unique ID.
         /// </summary>
-        /// <param name="id">The unique identifier of the employee.</param>
-        /// <returns>The EmployeeResponseDto.</returns>
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(EmployeeResponseDto))]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -88,7 +85,7 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employee = await _context.Employees.FindAsync(id);
+                var employee = await _context.SalesEmployees.FindAsync(id);
 
                 if (employee == null)
                 {
@@ -121,10 +118,8 @@ namespace NavbharatAgroAPI.Controllers
         }
 
         /// <summary>
-        /// Creates a new employee record.
+        /// Creates a new sales employee record.
         /// </summary>
-        /// <param name="requestDto">The details of the new employee.</param>
-        /// <returns>The created EmployeeResponseDto.</returns>
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(EmployeeResponseDto))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -140,7 +135,7 @@ namespace NavbharatAgroAPI.Controllers
                     return Conflict(new { message = $"Employee with Id {requestDto.Id} already exists." });
                 }
 
-                var employee = new Employee
+                var employee = new SalesEmployee
                 {
                     Id = requestDto.Id,
                     Name = requestDto.Name,
@@ -152,7 +147,33 @@ namespace NavbharatAgroAPI.Controllers
                     IsActive = true
                 };
 
-                _context.Employees.Add(employee);
+                // Auto sync to EmployeeMaster if not existing
+                var existingMaster = await _context.EmployeeMasters
+                    .FirstOrDefaultAsync(em => em.EmployeeCode.ToLower() == requestDto.EmployeeCode.ToLower());
+
+                if (existingMaster == null)
+                {
+                    var salesDept = await _context.Departments.FirstOrDefaultAsync(d => d.Name.ToLower() == "sales");
+                    existingMaster = new EmployeeMaster
+                    {
+                        EmployeeCode = requestDto.EmployeeCode,
+                        EmployeeId = $"EMP-2026-{requestDto.EmployeeCode}",
+                        FirstName = requestDto.Name,
+                        LastName = ".",
+                        MobileNumber = requestDto.MobileNumber,
+                        DepartmentId = salesDept?.Id ?? 1,
+                        DepartmentName = "Sales",
+                        BranchName = requestDto.AssignedArea ?? "Head Office",
+                        PasswordHash = employee.PasswordHash,
+                        EmployeeStatus = "Active",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.EmployeeMasters.Add(existingMaster);
+                    await _context.SaveChangesAsync();
+                }
+
+                employee.EmployeeMasterId = existingMaster.Id;
+                _context.SalesEmployees.Add(employee);
                 await _context.SaveChangesAsync();
 
                 var responseDto = new EmployeeResponseDto
@@ -184,9 +205,6 @@ namespace NavbharatAgroAPI.Controllers
         /// <summary>
         /// Updates an existing employee's details.
         /// </summary>
-        /// <param name="id">The unique identifier of the employee to update.</param>
-        /// <param name="requestDto">The updated employee details.</param>
-        /// <returns>A success message.</returns>
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(EmployeeResponseDto))]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -203,7 +221,7 @@ namespace NavbharatAgroAPI.Controllers
 
             try
             {
-                var employee = await _context.Employees.FindAsync(id);
+                var employee = await _context.SalesEmployees.FindAsync(id);
                 if (employee == null)
                 {
                     _logger.LogWarning("PutEmployee: Employee with Id {Id} not found.", id);
@@ -252,8 +270,6 @@ namespace NavbharatAgroAPI.Controllers
         /// <summary>
         /// Deletes an employee from the system.
         /// </summary>
-        /// <param name="id">The unique identifier of the employee to delete.</param>
-        /// <returns>No content on success.</returns>
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -262,14 +278,14 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employee = await _context.Employees.FindAsync(id);
+                var employee = await _context.SalesEmployees.FindAsync(id);
                 if (employee == null)
                 {
                     _logger.LogWarning("DeleteEmployee: Employee with Id {Id} not found.", id);
                     return NotFound(new { message = $"Employee with Id {id} not found." });
                 }
 
-                _context.Employees.Remove(employee);
+                _context.SalesEmployees.Remove(employee);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Employee with Id {Id} deleted successfully.", id);
@@ -290,7 +306,7 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employee = await _context.Employees.FindAsync(id);
+                var employee = await _context.SalesEmployees.FindAsync(id);
                 if (employee == null)
                 {
                     return NotFound(new { message = $"Employee with Id {id} not found." });
@@ -336,7 +352,7 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employee = await _context.Employees.FindAsync(id);
+                var employee = await _context.SalesEmployees.FindAsync(id);
                 if (employee == null)
                 {
                     return NotFound(new { message = $"Employee with Id {id} not found." });
@@ -377,7 +393,7 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employee = await _context.Employees.FindAsync(id);
+                var employee = await _context.SalesEmployees.FindAsync(id);
                 if (employee == null)
                 {
                     return NotFound(new { message = $"Employee with Id {id} not found." });
@@ -416,7 +432,7 @@ namespace NavbharatAgroAPI.Controllers
 
         private bool EmployeeExists(int id)
         {
-            return _context.Employees.Any(e => e.Id == id);
+            return _context.SalesEmployees.Any(e => e.Id == id);
         }
     }
 }

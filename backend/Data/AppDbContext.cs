@@ -10,24 +10,88 @@ namespace NavbharatAgroAPI.Data
         {
         }
 
-        public DbSet<Employee> Employees { get; set; }
+        public DbSet<SalesEmployee> SalesEmployees { get; set; }
+        public DbSet<EmployeeMaster> EmployeeMasters { get; set; }
+        public DbSet<Department> Departments { get; set; }
+        public DbSet<Designation> Designations { get; set; }
+        public DbSet<RoleMaster> RoleMasters { get; set; }
+        public DbSet<Branch> Branches { get; set; }
         public DbSet<OrderBooking> OrderBookings { get; set; }
         public DbSet<OrderProduct> OrderProducts { get; set; }
         public DbSet<FieldVisit> FieldVisits { get; set; }
         public DbSet<RouteMaster> RouteMasters { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<CustomerMaster> CustomerMasters { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. Employee Indexes and Configurations
-            modelBuilder.Entity<Employee>()
+            // CustomerMaster Indexes
+            modelBuilder.Entity<CustomerMaster>()
+                .HasIndex(cm => cm.CustomerCode)
+                .IsUnique();
+
+            modelBuilder.Entity<CustomerMaster>()
+                .HasIndex(cm => cm.CustomerId)
+                .IsUnique();
+
+            // 1. SalesEmployee Table Mapping, Indexes and Configurations
+            modelBuilder.Entity<SalesEmployee>()
+                .ToTable("SalesEmployees");
+
+            modelBuilder.Entity<SalesEmployee>()
                 .HasIndex(e => e.EmployeeCode)
                 .IsUnique();
                 
-            modelBuilder.Entity<Employee>()
+            modelBuilder.Entity<SalesEmployee>()
                 .HasIndex(e => e.MobileNumber);
+
+            modelBuilder.Entity<SalesEmployee>()
+                .HasOne(e => e.EmployeeMaster)
+                .WithMany()
+                .HasForeignKey(e => e.EmployeeMasterId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // 1b. EmployeeMaster Indexes and Configurations
+            modelBuilder.Entity<EmployeeMaster>()
+                .HasIndex(em => em.EmployeeCode)
+                .IsUnique();
+
+            modelBuilder.Entity<EmployeeMaster>()
+                .HasIndex(em => em.EmployeeId);
+
+            modelBuilder.Entity<EmployeeMaster>()
+                .HasIndex(em => em.EmailAddress);
+
+            // Master Lookup Seed Data
+            modelBuilder.Entity<Department>().HasData(
+                new Department { Id = 1, Name = "Sales", Code = "DEP-SALES", IsActive = true },
+                new Department { Id = 2, Name = "Human Resources", Code = "DEP-HR", IsActive = true },
+                new Department { Id = 3, Name = "Operations", Code = "DEP-OPS", IsActive = true },
+                new Department { Id = 4, Name = "IT & Systems", Code = "DEP-IT", IsActive = true },
+                new Department { Id = 5, Name = "Accounts & Finance", Code = "DEP-ACC", IsActive = true }
+            );
+
+            modelBuilder.Entity<Designation>().HasData(
+                new Designation { Id = 1, Name = "Senior Sales Executive", Code = "DES-SSE", IsActive = true },
+                new Designation { Id = 2, Name = "Field Officer", Code = "DES-FO", IsActive = true },
+                new Designation { Id = 3, Name = "Area Manager", Code = "DES-AM", IsActive = true },
+                new Designation { Id = 4, Name = "HR Manager", Code = "DES-HRM", IsActive = true },
+                new Designation { Id = 5, Name = "Operations Coordinator", Code = "DES-OC", IsActive = true }
+            );
+
+            modelBuilder.Entity<RoleMaster>().HasData(
+                new RoleMaster { Id = 1, Name = "Admin", Code = "ROLE-ADMIN", IsActive = true },
+                new RoleMaster { Id = 2, Name = "Manager", Code = "ROLE-MGR", IsActive = true },
+                new RoleMaster { Id = 3, Name = "Field Employee", Code = "ROLE-EMP", IsActive = true }
+            );
+
+            modelBuilder.Entity<Branch>().HasData(
+                new Branch { Id = 1, Name = "Head Office", Code = "BR-HO", City = "Kolhapur", IsActive = true },
+                new Branch { Id = 2, Name = "Regional Branch", Code = "BR-REG", City = "Gadhinglaj", IsActive = true },
+                new Branch { Id = 3, Name = "North Branch", Code = "BR-NOR", City = "Nagpur", IsActive = true }
+            );
 
             // 2. OrderBooking Relationships and Indexes
             modelBuilder.Entity<OrderBooking>()

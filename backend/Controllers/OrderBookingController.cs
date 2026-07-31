@@ -277,7 +277,7 @@ namespace NavbharatAgroAPI.Controllers
             try
             {
                 // Validate EmployeeId
-                bool employeeExists = await _context.Employees.AnyAsync(e => e.Id == requestDto.EmployeeId);
+                bool employeeExists = await _context.SalesEmployees.AnyAsync(e => e.Id == requestDto.EmployeeId);
                 if (!employeeExists)
                 {
                     _logger.LogWarning("PostOrderBooking: Employee with Id {Id} does not exist.", requestDto.EmployeeId);
@@ -385,7 +385,7 @@ namespace NavbharatAgroAPI.Controllers
             try
             {
                 // Validate EmployeeId
-                bool employeeExists = await _context.Employees.AnyAsync(e => e.Id == requestDto.EmployeeId);
+                bool employeeExists = await _context.SalesEmployees.AnyAsync(e => e.Id == requestDto.EmployeeId);
                 if (!employeeExists)
                 {
                     _logger.LogWarning("PutOrderBooking: Employee with Id {Id} does not exist.", requestDto.EmployeeId);

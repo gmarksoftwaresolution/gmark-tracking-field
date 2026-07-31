@@ -66,4 +66,27 @@ export const getEmployeeDailyReport = (employeeId) => api.get(`/reports/daily/${
 export const getMonthlyReport = () => api.get('/reports/monthly').then(res => res.data);
 export const getEmployeeMonthlyReport = (employeeId) => api.get(`/reports/monthly/${employeeId}`).then(res => res.data);
 
+// --- HR Employee Master API ---
+export const getEmployeeMasters = (params = {}) => api.get('/employeemaster', { params }).then(res => res.data);
+export const getEmployeeMaster = (id) => api.get(`/employeemaster/${id}`).then(res => res.data);
+export const getNextEmployeeCode = () => api.get('/employeemaster/next-code').then(res => res.data);
+export const createEmployeeMaster = (data) => api.post('/employeemaster', data).then(res => res.data);
+export const updateEmployeeMaster = (id, data) => api.put(`/employeemaster/${id}`, data).then(res => res.data);
+export const deleteEmployeeMaster = (id) => api.delete(`/employeemaster/${id}`).then(res => res.data);
+export const updateEmployeeMasterStatus = (id, status) => api.put(`/employeemaster/${id}/status`, { employeeStatus: status }).then(res => res.data);
+
+// --- Master Lookups API ---
+export const getDepartmentLookups = () => api.get('/lookups/departments').then(res => res.data);
+export const getDesignationLookups = () => api.get('/lookups/designations').then(res => res.data);
+export const getRoleLookups = () => api.get('/lookups/roles').then(res => res.data);
+export const getBranchLookups = () => api.get('/lookups/branches').then(res => res.data);
+
+// --- Customer Master API ---
+export const getCustomerMasters = (params = {}) => api.get('/customermaster', { params }).then(res => res.data);
+export const getCustomerMaster = (id) => api.get(`/customermaster/${id}`).then(res => res.data);
+export const getNextCustomerCode = () => api.get('/customermaster/next-code').then(res => res.data);
+export const createCustomerMaster = (data) => api.post('/customermaster', data).then(res => res.data);
+export const updateCustomerMaster = (id, data) => api.put(`/customermaster/${id}`, data).then(res => res.data);
+export const deleteCustomerMaster = (id) => api.delete(`/customermaster/${id}`).then(res => res.data);
+
 export default api;

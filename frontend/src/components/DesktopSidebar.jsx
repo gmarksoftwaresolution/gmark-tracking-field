@@ -64,10 +64,9 @@ export default function DesktopSidebar() {
     <aside className="hidden md:flex flex-col fixed top-0 bottom-0 left-0 w-64 bg-white border-r border-slate-200/80 z-40 p-6 shadow-sm">
       {/* Branding Header */}
       <div className="flex items-center gap-3.5 pb-6 border-b border-slate-100 mb-6">
-        <img src="/gmark-logo.png" alt="Navbharat Logo" className="h-10 w-10 object-contain rounded-xl shadow-sm border border-slate-100 bg-white" />
+        <img src="/gmark-logo.png" alt="G-Mark Logo" className="h-10 w-10 object-contain rounded-xl shadow-sm border border-slate-100 bg-white" />
         <div>
-          <h2 className="font-extrabold text-slate-900 text-sm leading-snug">Navbharat Agro</h2>
-          <p className="text-xs text-blue-600 font-semibold">Employee System</p>
+          <h2 className="font-extrabold text-slate-900 text-base leading-snug">G-Mark</h2>
         </div>
       </div>
 

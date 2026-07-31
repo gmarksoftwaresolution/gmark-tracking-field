@@ -33,7 +33,7 @@ namespace NavbharatAgroAPI.Controllers
             {
                 var today = DateOnly.FromDateTime(DateTime.Now);
                 
-                var employees = await _context.Employees.ToListAsync();
+                var employees = await _context.SalesEmployees.ToListAsync();
                 var orderBookings = await _context.OrderBookings
                     .Include(o => o.OrderProducts)
                     .Where(o => o.BookingDate == today)
@@ -95,7 +95,7 @@ namespace NavbharatAgroAPI.Controllers
             {
                 var today = DateOnly.FromDateTime(DateTime.Now);
                 
-                var emp = await _context.Employees.FindAsync(employeeId);
+                var emp = await _context.SalesEmployees.FindAsync(employeeId);
                 if (emp == null)
                 {
                     return NotFound(new { message = $"Employee with Id {employeeId} not found." });
@@ -154,7 +154,7 @@ namespace NavbharatAgroAPI.Controllers
             {
                 var now = DateTime.Now;
                 
-                var employees = await _context.Employees.ToListAsync();
+                var employees = await _context.SalesEmployees.ToListAsync();
                 var orderBookings = await _context.OrderBookings
                     .Include(o => o.OrderProducts)
                     .Where(o => o.BookingDate.Year == now.Year && o.BookingDate.Month == now.Month)
@@ -216,7 +216,7 @@ namespace NavbharatAgroAPI.Controllers
             {
                 var now = DateTime.Now;
                 
-                var emp = await _context.Employees.FindAsync(employeeId);
+                var emp = await _context.SalesEmployees.FindAsync(employeeId);
                 if (emp == null)
                 {
                     return NotFound(new { message = $"Employee with Id {employeeId} not found." });

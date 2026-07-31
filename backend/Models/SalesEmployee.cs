@@ -6,7 +6,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NavbharatAgroAPI.Models
 {
-    public class Employee
+    public class SalesEmployee
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
@@ -37,6 +37,11 @@ namespace NavbharatAgroAPI.Models
         public string? SelectedRouteCode { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public int? EmployeeMasterId { get; set; }
+
+        [ForeignKey("EmployeeMasterId")]
+        public EmployeeMaster? EmployeeMaster { get; set; }
 
         [JsonIgnore]
         public ICollection<OrderBooking> OrderBookings { get; set; } = new List<OrderBooking>();

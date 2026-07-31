@@ -11,7 +11,7 @@ namespace NavbharatAgroAPI.Models
 
         public int? EmployeeId { get; set; }
         
-        public Employee? Employee { get; set; }
+        public SalesEmployee? Employee { get; set; }
 
         [StringLength(100)]
         public string? AssignedBy { get; set; }

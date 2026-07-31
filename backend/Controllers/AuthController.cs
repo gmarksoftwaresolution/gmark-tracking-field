@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NavbharatAgroAPI.Data;
 using NavbharatAgroAPI.DTOs;
+using NavbharatAgroAPI.Models;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace NavbharatAgroAPI.Controllers
@@ -36,12 +38,12 @@ namespace NavbharatAgroAPI.Controllers
                     return Unauthorized(new { message = "Invalid Password" });
                 }
 
-                NavbharatAgroAPI.Models.Employee matchedEmployee = null;
+                SalesEmployee? matchedEmployee = null;
 
-                // 1. If EmployeeId > 0 is provided, check that specific employee first
+                // 1. If EmployeeId > 0 is provided, check that specific sales employee first
                 if (request.EmployeeId > 0)
                 {
-                    var emp = await _context.Employees.FindAsync(request.EmployeeId);
+                    var emp = await _context.SalesEmployees.FindAsync(request.EmployeeId);
                     if (emp != null && emp.IsActive && !string.IsNullOrEmpty(emp.PasswordHash))
                     {
                         try
@@ -58,10 +60,10 @@ namespace NavbharatAgroAPI.Controllers
                     }
                 }
 
-                // 2. If no direct EmployeeId match yet, search all active employees by BCrypt password hash
+                // 2. If no direct EmployeeId match yet, search all active sales employees by BCrypt password hash
                 if (matchedEmployee == null)
                 {
-                    var activeEmployees = await _context.Employees
+                    var activeEmployees = await _context.SalesEmployees
                         .Where(e => e.IsActive && !string.IsNullOrEmpty(e.PasswordHash))
                         .ToListAsync();
 
@@ -78,6 +80,34 @@ namespace NavbharatAgroAPI.Controllers
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "BCrypt verification exception for Employee ID {EmployeeId}", emp.Id);
+                        }
+                    }
+                }
+
+                // 3. Fallback check: Check EmployeeMasters table if password matches an EmployeeMaster
+                if (matchedEmployee == null)
+                {
+                    var activeMasters = await _context.EmployeeMasters
+                        .Where(em => em.EmployeeStatus == "Active" && !string.IsNullOrEmpty(em.PasswordHash))
+                        .ToListAsync();
+
+                    foreach (var em in activeMasters)
+                    {
+                        try
+                        {
+                            if (BCrypt.Net.BCrypt.Verify(trimmedPassword, em.PasswordHash))
+                            {
+                                var linkedSales = await _context.SalesEmployees.FirstOrDefaultAsync(s => s.EmployeeMasterId == em.Id);
+                                if (linkedSales != null)
+                                {
+                                    matchedEmployee = linkedSales;
+                                    break;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "BCrypt verification exception for EmployeeMaster ID {Id}", em.Id);
                         }
                     }
                 }
@@ -103,6 +133,5 @@ namespace NavbharatAgroAPI.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Server error during login." });
             }
         }
-
     }
 }

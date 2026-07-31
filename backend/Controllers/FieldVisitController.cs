@@ -95,7 +95,7 @@ namespace NavbharatAgroAPI.Controllers
                 // Validate EmployeeId
                 if (requestDto.EmployeeId.HasValue)
                 {
-                    bool employeeExists = await _context.Employees.AnyAsync(e => e.Id == requestDto.EmployeeId);
+                    bool employeeExists = await _context.SalesEmployees.AnyAsync(e => e.Id == requestDto.EmployeeId);
                     if (!employeeExists)
                     {
                         _logger.LogWarning("PostFieldVisit: Employee with Id {Id} does not exist.", requestDto.EmployeeId);
@@ -166,7 +166,7 @@ namespace NavbharatAgroAPI.Controllers
                 // Validate EmployeeId
                 if (requestDto.EmployeeId.HasValue)
                 {
-                    bool employeeExists = await _context.Employees.AnyAsync(e => e.Id == requestDto.EmployeeId);
+                    bool employeeExists = await _context.SalesEmployees.AnyAsync(e => e.Id == requestDto.EmployeeId);
                     if (!employeeExists)
                     {
                         _logger.LogWarning("PutFieldVisit: Employee with Id {Id} does not exist.", requestDto.EmployeeId);

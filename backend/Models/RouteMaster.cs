@@ -24,7 +24,7 @@ namespace NavbharatAgroAPI.Models
         public int? AssignedEmployeeId { get; set; }
 
         [ForeignKey("AssignedEmployeeId")]
-        public Employee? AssignedEmployee { get; set; }
+        public SalesEmployee? AssignedEmployee { get; set; }
 
         public bool IsActive { get; set; } = true;
         
