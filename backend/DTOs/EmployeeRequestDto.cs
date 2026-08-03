@@ -22,5 +22,9 @@ namespace NavbharatAgroAPI.DTOs
 
         [StringLength(100)]
         public string? AssignedArea { get; set; }
+
+        public string? Password { get; set; }
+
+        public string? ConfirmPassword { get; set; }
     }
 }

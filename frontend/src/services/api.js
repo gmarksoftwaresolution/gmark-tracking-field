@@ -27,7 +27,8 @@ export const getProducts = () => api.get('/products').then(res => res.data);
 // --- Employees API ---
 export const getEmployees = () => api.get('/employees').then(res => res.data);
 export const getEmployee = (id) => api.get(`/employees/${id}`).then(res => res.data);
-export const createEmployee = (data) => api.post('/employees', data).then(res => res.data);
+export const createEmployee = (data, options = {}) => api.post('/employees', data, options).then(res => res.data);
+export const resetEmployeePassword = (id, data, options = {}) => api.post(`/employees/${id}/reset-password`, data, options).then(res => res.data);
 export const updateEmployee = (id, data) => api.put(`/employees/${id}`, data).then(res => res.data);
 export const deleteEmployee = (id) => api.delete(`/employees/${id}`).then(res => res.data);
 export const startTrip = (id, routeCode) => api.put(`/employees/${id}/start-trip`, { routeCode }).then(res => res.data);

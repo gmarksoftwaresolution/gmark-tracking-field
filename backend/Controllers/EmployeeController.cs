@@ -140,6 +140,25 @@ namespace NavbharatAgroAPI.Controllers
                     return Conflict(new { message = $"Employee with Id {requestDto.Id} already exists." });
                 }
 
+                string rawPasswordToHash = "0000";
+
+                if (!string.IsNullOrWhiteSpace(requestDto.Password))
+                {
+                    if (!IsAdminRequest())
+                    {
+                        _logger.LogWarning("PostEmployee: Unauthorized attempt to set employee password for Id {Id}.", requestDto.Id);
+                        return StatusCode(StatusCodes.Status403Forbidden, new { message = "Forbidden: Only Admin users can set employee passwords." });
+                    }
+
+                    var (isValid, errorMessage) = ValidatePassword(requestDto.Password, requestDto.ConfirmPassword);
+                    if (!isValid)
+                    {
+                        return BadRequest(new { message = errorMessage });
+                    }
+
+                    rawPasswordToHash = requestDto.Password;
+                }
+
                 var employee = new Employee
                 {
                     Id = requestDto.Id,
@@ -148,7 +167,7 @@ namespace NavbharatAgroAPI.Controllers
                     MobileNumber = requestDto.MobileNumber,
                     AssignedArea = requestDto.AssignedArea,
                     CreatedAt = DateTime.UtcNow,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("0000"),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(rawPasswordToHash),
                     IsActive = true
                 };
 
@@ -412,6 +431,86 @@ namespace NavbharatAgroAPI.Controllers
                 _logger.LogError(ex, "An error occurred while saving route for employee Id {Id}.", id);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
             }
+        }
+
+        /// <summary>
+        /// Resets an existing employee's password (Admin only).
+        /// </summary>
+        [HttpPost("{id}/reset-password")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ResetPassword(int id, [FromBody] ResetPasswordDto requestDto)
+        {
+            if (!IsAdminRequest())
+            {
+                _logger.LogWarning("ResetPassword: Unauthorized attempt to reset password for Employee Id {Id}.", id);
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Forbidden: Only Admin users can reset employee passwords." });
+            }
+
+            var (isValid, errorMessage) = ValidatePassword(requestDto?.Password, requestDto?.ConfirmPassword);
+            if (!isValid)
+            {
+                return BadRequest(new { message = errorMessage });
+            }
+
+            try
+            {
+                var employee = await _context.Employees.FindAsync(id);
+                if (employee == null)
+                {
+                    _logger.LogWarning("ResetPassword: Employee with Id {Id} not found.", id);
+                    return NotFound(new { message = $"Employee with Id {id} not found." });
+                }
+
+                employee.PasswordHash = BCrypt.Net.BCrypt.HashPassword(requestDto!.Password);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Password reset successfully for Employee Id {Id}.", id);
+                return Ok(new { message = "Employee Password Reset Successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while resetting password for employee Id {Id}.", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
+        }
+
+        private bool IsAdminRequest()
+        {
+            if (Request.Headers.TryGetValue("X-User-Role", out var roleHeader))
+            {
+                return string.Equals(roleHeader.ToString(), "Admin", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
+        }
+
+        private static (bool IsValid, string ErrorMessage) ValidatePassword(string? password, string? confirmPassword)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+                return (false, "Password is required.");
+
+            if (password != confirmPassword)
+                return (false, "Password and Confirm Password must match.");
+
+            if (password.Length < 8)
+                return (false, "Password must be at least 8 characters long.");
+
+            if (!password.Any(char.IsUpper))
+                return (false, "Password must contain at least one uppercase letter.");
+
+            if (!password.Any(char.IsLower))
+                return (false, "Password must contain at least one lowercase letter.");
+
+            if (!password.Any(char.IsDigit))
+                return (false, "Password must contain at least one number.");
+
+            if (!password.Any(ch => !char.IsLetterOrDigit(ch)))
+                return (false, "Password must contain at least one special character.");
+
+            return (true, string.Empty);
         }
 
         private bool EmployeeExists(int id)

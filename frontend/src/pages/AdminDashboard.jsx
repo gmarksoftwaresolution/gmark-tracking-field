@@ -5,6 +5,7 @@ import {
   getDailyReport,
   getMonthlyReport,
   createEmployee,
+  resetEmployeePassword,
   deleteEmployee,
   getCancelledOrders,
   deleteOrderBooking
@@ -83,6 +84,17 @@ const formatRouteForDisplay = (rawRoute, empNameClean = '', empId = '') => {
   return (rawRoute && rawRoute !== '--') ? rawRoute : '--';
 };
 
+const validatePasswordRules = (pwd, confirmPwd) => {
+  if (!pwd) return "Password is required.";
+  if (pwd !== confirmPwd) return "Password and Confirm Password must match.";
+  if (pwd.length < 8) return "Password must be at least 8 characters long.";
+  if (!/[A-Z]/.test(pwd)) return "Password must contain at least one uppercase letter.";
+  if (!/[a-z]/.test(pwd)) return "Password must contain at least one lowercase letter.";
+  if (!/[0-9]/.test(pwd)) return "Password must contain at least one number.";
+  if (!/[^a-zA-Z0-9]/.test(pwd)) return "Password must contain at least one special character.";
+  return null;
+};
+
 export default function AdminDashboard({ initialTab }) {
   const navigate = useNavigate();
 
@@ -104,21 +116,103 @@ export default function AdminDashboard({ initialTab }) {
 
   // Add Employee Modal state
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newEmployee, setNewEmployee] = useState({ name: '', employeeCode: '', mobileNumber: '', assignedArea: '' });
+  const [newEmployee, setNewEmployee] = useState({
+    name: '',
+    employeeCode: '',
+    mobileNumber: '',
+    assignedArea: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [showAddPassword, setShowAddPassword] = useState(false);
+  const [showAddConfirmPassword, setShowAddConfirmPassword] = useState(false);
+  const [addModalError, setAddModalError] = useState('');
+  const [addModalSuccess, setAddModalSuccess] = useState('');
+
+  // Reset Password Modal state
+  const [resetModal, setResetModal] = useState({
+    show: false,
+    employee: null,
+    password: '',
+    confirmPassword: '',
+    error: '',
+    success: '',
+    submitting: false
+  });
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
+    setAddModalError('');
+    setAddModalSuccess('');
+
+    const validationErr = validatePasswordRules(newEmployee.password, newEmployee.confirmPassword);
+    if (validationErr) {
+      setAddModalError(validationErr);
+      return;
+    }
+
     try {
       const id = Math.floor(Math.random() * 1000000);
-      await createEmployee({ id, ...newEmployee });
-      setShowAddModal(false);
-      setNewEmployee({ name: '', employeeCode: '', mobileNumber: '', assignedArea: '' });
-      // Refresh employees
-      const data = await getEmployees();
-      setEmployees(dedupeEmployees(data));
+      await createEmployee({
+        id,
+        name: newEmployee.name,
+        employeeCode: newEmployee.employeeCode,
+        mobileNumber: newEmployee.mobileNumber,
+        assignedArea: newEmployee.assignedArea,
+        password: newEmployee.password,
+        confirmPassword: newEmployee.confirmPassword
+      }, {
+        headers: { 'X-User-Role': 'Admin' }
+      });
+
+      setAddModalSuccess('Employee created successfully with password!');
+      setTimeout(async () => {
+        setShowAddModal(false);
+        setNewEmployee({ name: '', employeeCode: '', mobileNumber: '', assignedArea: '', password: '', confirmPassword: '' });
+        setAddModalSuccess('');
+        setAddModalError('');
+        const data = await getEmployees();
+        setEmployees(dedupeEmployees(data));
+      }, 1500);
     } catch (err) {
       console.error(err);
-      alert('Failed to add employee. Maybe Employee Code already exists.');
+      setAddModalError(err.response?.data?.message || 'Failed to add employee.');
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setResetModal(prev => ({ ...prev, error: '', success: '' }));
+
+    const validationErr = validatePasswordRules(resetModal.password, resetModal.confirmPassword);
+    if (validationErr) {
+      setResetModal(prev => ({ ...prev, error: validationErr }));
+      return;
+    }
+
+    setResetModal(prev => ({ ...prev, submitting: true }));
+
+    try {
+      await resetEmployeePassword(resetModal.employee.id, {
+        password: resetModal.password,
+        confirmPassword: resetModal.confirmPassword
+      }, {
+        headers: { 'X-User-Role': 'Admin' }
+      });
+
+      setResetModal(prev => ({ ...prev, success: 'Password reset successfully!', submitting: false }));
+      setTimeout(() => {
+        setResetModal({ show: false, employee: null, password: '', confirmPassword: '', error: '', success: '', submitting: false });
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      setResetModal(prev => ({
+        ...prev,
+        submitting: false,
+        error: err.response?.data?.message || 'Failed to reset password.'
+      }));
     }
   };
 
@@ -317,15 +411,37 @@ export default function AdminDashboard({ initialTab }) {
                         </p>
                       </div>
                     </button>
-                    <button
-                      onClick={(e) => handleDeleteEmployee(e, emp.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                      title="Delete Employee"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setResetModal({
+                            show: true,
+                            employee: emp,
+                            password: '',
+                            confirmPassword: '',
+                            error: '',
+                            success: '',
+                            submitting: false
+                          });
+                        }}
+                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-full transition-colors"
+                        title="Reset Password"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteEmployee(e, emp.id)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                        title="Delete Employee"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -601,36 +717,237 @@ export default function AdminDashboard({ initialTab }) {
 
       {/* Add Employee Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-slate-800">Add New Employee</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden my-8">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Add New Employee</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Set employee details and secure access password</p>
+              </div>
+              <button onClick={() => {
+                setShowAddModal(false);
+                setAddModalError('');
+                setAddModalSuccess('');
+              }} className="text-slate-400 hover:text-slate-600">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleAddEmployee} className="p-6 space-y-4">
+
+            <form onSubmit={handleAddEmployee} className="p-6 space-y-4 text-left">
+              {addModalError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+                  {addModalError}
+                </div>
+              )}
+
+              {addModalSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium">
+                  {addModalSuccess}
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                <input required type="text" value={newEmployee.name} onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
+                <input required type="text" value={newEmployee.name} onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="e.g. Rahul Sharma" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Employee Code</label>
-                <input required type="text" value={newEmployee.employeeCode} onChange={e => setNewEmployee({ ...newEmployee, employeeCode: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Employee Code *</label>
+                <input required type="text" value={newEmployee.employeeCode} onChange={e => setNewEmployee({ ...newEmployee, employeeCode: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="e.g. EMP005" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number</label>
-                <input required type="text" value={newEmployee.mobileNumber} onChange={e => setNewEmployee({ ...newEmployee, mobileNumber: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number *</label>
+                <input required type="text" value={newEmployee.mobileNumber} onChange={e => setNewEmployee({ ...newEmployee, mobileNumber: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="10-digit mobile number" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Area</label>
-                <input required type="text" value={newEmployee.assignedArea} onChange={e => setNewEmployee({ ...newEmployee, assignedArea: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Area *</label>
+                <input required type="text" value={newEmployee.assignedArea} onChange={e => setNewEmployee({ ...newEmployee, assignedArea: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="e.g. Kolhapur" />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Password *</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={showAddPassword ? "text" : "password"}
+                    value={newEmployee.password}
+                    onChange={e => setNewEmployee({ ...newEmployee, password: e.target.value })}
+                    className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Min 8 chars, A-Z, a-z, 0-9, special char"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPassword(!showAddPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showAddPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.038 10.038 0 014.122-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password *</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={showAddConfirmPassword ? "text" : "password"}
+                    value={newEmployee.confirmPassword}
+                    onChange={e => setNewEmployee({ ...newEmployee, confirmPassword: e.target.value })}
+                    className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Re-enter password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddConfirmPassword(!showAddConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showAddConfirmPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.038 10.038 0 014.122-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl text-xs text-slate-500 space-y-1 border border-slate-100">
+                <p className="font-semibold text-slate-600">Password Requirements:</p>
+                <p>&bull; At least 8 characters</p>
+                <p>&bull; At least 1 uppercase letter, 1 lowercase letter, 1 number, & 1 special char</p>
+              </div>
+
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Add Employee</button>
+                <button type="button" onClick={() => {
+                  setShowAddModal(false);
+                  setAddModalError('');
+                  setAddModalSuccess('');
+                }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors text-sm">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-semibold shadow-sm">Add Employee</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetModal.show && resetModal.employee && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Reset Employee Password</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Resetting password for: <span className="font-bold text-slate-700">{resetModal.employee.name}</span></p>
+              </div>
+              <button onClick={() => setResetModal({ show: false, employee: null, password: '', confirmPassword: '', error: '', success: '', submitting: false })} className="text-slate-400 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleResetPasswordSubmit} className="p-6 space-y-4 text-left">
+              {resetModal.error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+                  {resetModal.error}
+                </div>
+              )}
+
+              {resetModal.success && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium">
+                  {resetModal.success}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">New Password *</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={showResetPassword ? "text" : "password"}
+                    value={resetModal.password}
+                    onChange={e => setResetModal({ ...resetModal, password: e.target.value })}
+                    className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showResetPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.038 10.038 0 014.122-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password *</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={showResetConfirmPassword ? "text" : "password"}
+                    value={resetModal.confirmPassword}
+                    onChange={e => setResetModal({ ...resetModal, confirmPassword: e.target.value })}
+                    className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Re-enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showResetConfirmPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.038 10.038 0 014.122-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl text-xs text-slate-500 space-y-1 border border-slate-100">
+                <p className="font-semibold text-slate-600">Password Requirements:</p>
+                <p>&bull; At least 8 characters</p>
+                <p>&bull; At least 1 uppercase letter, 1 lowercase letter, 1 number, & 1 special char</p>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => setResetModal({ show: false, employee: null, password: '', confirmPassword: '', error: '', success: '', submitting: false })} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors text-sm">Cancel</button>
+                <button type="submit" disabled={resetModal.submitting} className="px-5 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors text-sm font-semibold shadow-sm">
+                  {resetModal.submitting ? 'Resetting...' : 'Reset Password'}
+                </button>
               </div>
             </form>
           </div>

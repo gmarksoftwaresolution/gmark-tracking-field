@@ -9,8 +9,92 @@ import {
   getEmployeeDailyReport,
   getEmployeeMonthlyReport,
   deleteOrderBooking,
-  deleteFieldVisit
+  deleteFieldVisit,
+  resetEmployeePassword
 } from '../services/api';
+
+const routeCodeMap = {
+  // Kunal Routes
+  'K001': 'Kumbharwada → Kumbharwada',
+  'K002': 'Kumbharwada → Kumbharwada',
+  'K003': 'Kumbharwada → Shengaon',
+  'K004': 'Ku. Walwe → Ku. Walwe',
+  'K005': 'Ku. Walwe → Arjunwada',
+  'K006': 'Ku. Walwe → Ku. Walwe',
+
+  // Pruthviraj Routes
+  'P001': 'Nesari → Waghrali',
+  'P002': 'Kolindre → Gadhinglaj',
+  'P003': 'Inchnal → Bahirewadi',
+  'P004': 'Waghrali → Kalvikatti',
+  'P005': 'Kandeewadi → Yamehatti',
+  'P006': 'Gadhinglaj → Khandal',
+
+  // Default Routes
+  'R001': 'Nagpur → Kamptee',
+  'R002': 'Kamptee → Ramtek',
+  'R003': 'Ramtek → Khapa',
+  'R004': 'Khapa → Nagpur',
+  'R005': 'Nagpur → Butibori',
+  'R006': 'Butibori → Nagpur'
+};
+
+const getStartEndLabel = (pathStr) => {
+  if (!pathStr) return '';
+  const parts = pathStr.split('→').map(p => p.trim());
+  if (parts.length >= 2) {
+    return `${parts[0]} → ${parts[parts.length - 1]}`;
+  }
+  return pathStr;
+};
+
+const resolveSelectedRoute = (emp) => {
+  if (!emp) return 'Not Set';
+  const nameLower = (emp.name || '').toLowerCase();
+
+  // Check Rohit's manual route first if employee is Rohit
+  if (nameLower.includes('rohit')) {
+    const rohitRouteStr = localStorage.getItem('rohitCustomRoute') ||
+                           sessionStorage.getItem('rohitCustomRoute') ||
+                           localStorage.getItem(`rohitCustomRoute_${emp.id}`);
+    if (rohitRouteStr) {
+      try {
+        const parsed = JSON.parse(rohitRouteStr);
+        if (parsed.label) return getStartEndLabel(parsed.label);
+        if (parsed.startLoc && parsed.endLoc) return `${parsed.startLoc} → ${parsed.endLoc}`;
+        if (parsed.path) return getStartEndLabel(parsed.path);
+      } catch (e) {}
+    }
+  }
+
+  const rawRoute = emp.selectedRouteCode;
+  if (!rawRoute || rawRoute.trim() === '' || rawRoute === '--') {
+    return 'Not Set';
+  }
+
+  // If rawRoute matches a known route code (e.g. K001, P001, P002, etc.)
+  if (routeCodeMap[rawRoute.trim()]) {
+    return routeCodeMap[rawRoute.trim()];
+  }
+
+  // If rawRoute contains '→' (path string or custom route label)
+  if (rawRoute.includes('→')) {
+    return getStartEndLabel(rawRoute);
+  }
+
+  return rawRoute;
+};
+
+const validatePasswordRules = (pwd, confirmPwd) => {
+  if (!pwd) return "Password is required.";
+  if (pwd !== confirmPwd) return "Password and Confirm Password must match.";
+  if (pwd.length < 8) return "Password must be at least 8 characters long.";
+  if (!/[A-Z]/.test(pwd)) return "Password must contain at least one uppercase letter.";
+  if (!/[a-z]/.test(pwd)) return "Password must contain at least one lowercase letter.";
+  if (!/[0-9]/.test(pwd)) return "Password must contain at least one number.";
+  if (!/[^a-zA-Z0-9]/.test(pwd)) return "Password must contain at least one special character.";
+  return null;
+};
 
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -26,6 +110,53 @@ export default function EmployeeDetail() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Reset Password Modal state
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPassword, setResetPasswordState] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess('');
+
+    const validationErr = validatePasswordRules(resetPassword, resetConfirmPassword);
+    if (validationErr) {
+      setResetError(validationErr);
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      await resetEmployeePassword(employee.id, {
+        password: resetPassword,
+        confirmPassword: resetConfirmPassword
+      }, {
+        headers: { 'X-User-Role': 'Admin' }
+      });
+
+      setResetSuccess('Password reset successfully!');
+      setTimeout(() => {
+        setShowResetModal(false);
+        setResetPasswordState('');
+        setResetConfirmPassword('');
+        setResetError('');
+        setResetSuccess('');
+        setIsResetting(false);
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      setIsResetting(false);
+      setResetError(err.response?.data?.message || 'Failed to reset password.');
+    }
+  };
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -130,8 +261,8 @@ export default function EmployeeDetail() {
     );
   }
 
-  // Derive selected route from most recent activity
-  const selectedRoute = pendingOrders[0]?.route || fieldVisits[0]?.route || deliveredOrders[0]?.route || 'Not Set';
+  // Derive currently selected route for this employee
+  const selectedRoute = resolveSelectedRoute(employee);
   
   // Extract values, fallback to 0 if report missing
   const todaysOrders = dailyReport?.totalOrders || 0;
@@ -202,72 +333,37 @@ export default function EmployeeDetail() {
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{employee.name}</h1>
             <p className="text-blue-100 font-medium mt-2">Employee Detail View &bull; Code: {employee.employeeCode}</p>
           </div>
-          <button 
-            onClick={handleDownloadExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-medium transition-colors active:scale-95"
-            title="Download Excel"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span className="hidden sm:inline">Export to Excel</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setShowResetModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500/90 hover:bg-amber-500 backdrop-blur-sm text-white rounded-xl font-medium transition-colors active:scale-95 shadow-sm text-sm"
+              title="Reset Password"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              <span className="hidden sm:inline">Reset Password</span>
+            </button>
+            <button 
+              onClick={handleDownloadExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-medium transition-colors active:scale-95 text-sm"
+              title="Download Excel"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span className="hidden sm:inline">Export to Excel</span>
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 -mt-10 mb-12 relative z-10 space-y-8">
         
         {/* Info & Summary Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
-            <h3 className="text-sm font-medium text-slate-500 mb-1">Trip Status</h3>
-            {(() => {
-              const isTodayDate = (dateStr) => {
-                if (!dateStr) return false;
-                const d = new Date(dateStr);
-                if (isNaN(d.getTime())) return false;
-                const today = new Date();
-                return d.getFullYear() === today.getFullYear() &&
-                       d.getMonth() === today.getMonth() &&
-                       d.getDate() === today.getDate();
-              };
-              const tripIsToday = isTodayDate(employee?.tripStartTime);
-              const status = tripIsToday ? (employee?.tripStatus || 'Not Started') : 'Not Started';
-              const isStarted = status === 'Started';
-              const isStopped = status === 'Stopped' || status === 'Completed';
-              const startTimeFormatted = tripIsToday && employee?.tripStartTime ? new Date(employee.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
-              const endTimeFormatted = tripIsToday && employee?.tripEndTime ? new Date(employee.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
-
-              return (
-                <>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mt-1 ${
-                    isStarted
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      : isStopped
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${isStarted ? 'bg-emerald-500 animate-ping' : isStopped ? 'bg-amber-500' : 'bg-slate-400'}`} />
-                    {isStarted ? 'Started' : isStopped ? 'Stopped' : 'Not Started'}
-                  </span>
-                  {isStarted && (
-                    <span className="text-xs text-slate-500 font-medium mt-1">
-                      Start Time: {startTimeFormatted}
-                    </span>
-                  )}
-                  {isStopped && (
-                    <div className="text-xs text-slate-500 font-medium mt-1 flex flex-col items-center gap-0.5">
-                      <span>Start: {startTimeFormatted}</span>
-                      <span>Stop: {endTimeFormatted}</span>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center sm:col-span-2 lg:col-span-2 transform transition-transform hover:-translate-y-1">
             <h3 className="text-sm font-medium text-slate-500 mb-1">Selected Route</h3>
             <p className="text-xl font-bold text-slate-800 text-center truncate w-full">{selectedRoute}</p>
           </div>
@@ -297,7 +393,7 @@ export default function EmployeeDetail() {
             <p className="text-3xl font-bold text-slate-800">₹{monthlySales}</p>
           </div>
 
-          <div className="bg-purple-600 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-center items-center md:col-span-2 lg:col-span-2 transform transition-transform hover:-translate-y-1">
+          <div className="bg-purple-600 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
             <h3 className="text-sm font-medium text-purple-100 mb-1">Total Field Visits</h3>
             <p className="text-4xl font-bold">{fieldVisits.length}</p>
           </div>
@@ -524,6 +620,126 @@ export default function EmployeeDetail() {
 
         </div>
       </main>
+
+      {/* Reset Password Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Reset Employee Password</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Resetting password for: <span className="font-bold text-slate-700">{employee.name}</span></p>
+              </div>
+              <button onClick={() => {
+                setShowResetModal(false);
+                setResetPasswordState('');
+                setResetConfirmPassword('');
+                setResetError('');
+                setResetSuccess('');
+              }} className="text-slate-400 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleResetPasswordSubmit} className="p-6 space-y-4 text-left">
+              {resetError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+                  {resetError}
+                </div>
+              )}
+
+              {resetSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium">
+                  {resetSuccess}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">New Password *</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={showResetPassword ? "text" : "password"}
+                    value={resetPassword}
+                    onChange={e => setResetPasswordState(e.target.value)}
+                    className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showResetPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.038 10.038 0 014.122-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password *</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={showResetConfirmPassword ? "text" : "password"}
+                    value={resetConfirmPassword}
+                    onChange={e => setResetConfirmPassword(e.target.value)}
+                    className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    placeholder="Re-enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showResetConfirmPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.038 10.038 0 014.122-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl text-xs text-slate-500 space-y-1 border border-slate-100">
+                <p className="font-semibold text-slate-600">Password Requirements:</p>
+                <p>&bull; At least 8 characters</p>
+                <p>&bull; At least 1 uppercase letter, 1 lowercase letter, 1 number, & 1 special char</p>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => {
+                  setShowResetModal(false);
+                  setResetPasswordState('');
+                  setResetConfirmPassword('');
+                  setResetError('');
+                  setResetSuccess('');
+                }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors text-sm">Cancel</button>
+                <button type="submit" disabled={isResetting} className="px-5 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors text-sm font-semibold shadow-sm">
+                  {isResetting ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ namespace NavbharatAgroAPI.Models
         [StringLength(100)]
         public string? AssignedArea { get; set; }
 
+        [JsonIgnore]
         public string? PasswordHash { get; set; }
         
         public bool IsActive { get; set; } = true;
