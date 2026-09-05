@@ -8,8 +8,10 @@ import {
   resetEmployeePassword,
   deleteEmployee,
   getCancelledOrders,
-  deleteOrderBooking
+  deleteOrderBooking,
+  getHistoricalRoute
 } from '../services/api';
+import LiveTrackingMap from '../components/LiveTrackingMap';
 
 const routeCodeMap = {
   // Kunal Routes
@@ -52,15 +54,15 @@ const formatRouteForDisplay = (rawRoute, empNameClean = '', empId = '') => {
   // Custom route for Rohit
   if (nameLower.includes('rohit')) {
     const rohitRouteStr = localStorage.getItem('rohitCustomRoute') ||
-                           sessionStorage.getItem('rohitCustomRoute') ||
-                           localStorage.getItem(`rohitCustomRoute_${empId}`);
+      sessionStorage.getItem('rohitCustomRoute') ||
+      localStorage.getItem(`rohitCustomRoute_${empId}`);
     if (rohitRouteStr) {
       try {
         const parsed = JSON.parse(rohitRouteStr);
         if (parsed.label) return getStartEndLabel(parsed.label);
         if (parsed.startLoc && parsed.endLoc) return `${parsed.startLoc} → ${parsed.endLoc}`;
         if (parsed.path) return getStartEndLabel(parsed.path);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -99,6 +101,15 @@ export default function AdminDashboard({ initialTab }) {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState(initialTab || 'overview');
+  
+  // Tracking states for Employee Status Tab
+  const [selectedTrackingEmployee, setSelectedTrackingEmployee] = useState(null);
+  const [trackingDate, setTrackingDate] = useState(() => {
+    const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const dateObj = new Date(today);
+    return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+  });
+  const [historicalRoute, setHistoricalRoute] = useState(null);
 
   // Overview Data states
   const [employees, setEmployees] = useState([]);
@@ -240,6 +251,27 @@ export default function AdminDashboard({ initialTab }) {
         alert("Failed to delete order.");
       }
     }
+  };
+
+  useEffect(() => {
+    if (!selectedTrackingEmployee || !trackingDate) return;
+    const fetchRoute = async () => {
+      try {
+        const routeData = await getHistoricalRoute(selectedTrackingEmployee.id, trackingDate);
+        setHistoricalRoute(routeData);
+      } catch (err) {
+        console.error("Failed to fetch route for selected employee:", err);
+        setHistoricalRoute(null);
+      }
+    };
+    fetchRoute();
+  }, [selectedTrackingEmployee, trackingDate]);
+
+  const handleTrackingDateChange = (e) => {
+    const newDate = e.target.value;
+    if (!newDate) return;
+    setTrackingDate(newDate);
+    setHistoricalRoute(null); // Clear immediately
   };
 
   const dedupeEmployees = (dataList) => {
@@ -392,23 +424,41 @@ export default function AdminDashboard({ initialTab }) {
               {error && <p className="text-red-500">{error}</p>}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {employees.map(emp => (
+                {employees.map(emp => {
+                  // Append 'Z' to treat the timestamp as UTC
+                  const lastLocTime = emp.lastLocationTimestamp ? new Date(emp.lastLocationTimestamp + (emp.lastLocationTimestamp.endsWith('Z') ? '' : 'Z')) : null;
+                  const isOnline = lastLocTime ? (new Date() - lastLocTime) < 5 * 60 * 1000 : false;
+                  return (
                   <div
                     key={emp.id}
-                    className="p-6 rounded-2xl shadow border text-left transition-all duration-300 bg-white text-slate-800 border-slate-200 flex justify-between items-center hover:border-blue-300 hover:shadow-lg"
+                    className="p-6 rounded-2xl shadow border text-left transition-all duration-300 bg-white text-slate-800 border-slate-200 flex justify-between items-center hover:border-blue-300 hover:shadow-lg relative"
                   >
                     <button
                       onClick={() => navigate(`/admin-dashboard/employee/${emp.id}`)}
                       className="flex items-center gap-4 flex-1 text-left"
                     >
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl bg-blue-100 text-blue-600">
-                        {emp.name.charAt(0)}
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl bg-blue-100 text-blue-600">
+                          {emp.name.charAt(0)}
+                        </div>
+                        {isOnline ? (
+                          <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-sm" title="Online (Active recently)"></div>
+                        ) : (
+                          <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-slate-300 border-2 border-white rounded-full shadow-sm" title="Offline (No recent activity)"></div>
+                        )}
                       </div>
                       <div>
                         <h3 className="font-bold text-lg hover:text-blue-600 transition-colors">{emp.name}</h3>
-                        <p className="text-sm text-slate-500">
-                          Code: {emp.employeeCode}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-sm text-slate-500">
+                            Code: {emp.employeeCode}
+                          </p>
+                          {isOnline ? (
+                             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">ONLINE</span>
+                          ) : (
+                             <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">OFFLINE</span>
+                          )}
+                        </div>
                       </div>
                     </button>
                     <div className="flex items-center gap-1">
@@ -443,7 +493,7 @@ export default function AdminDashboard({ initialTab }) {
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           </div>
@@ -656,6 +706,9 @@ export default function AdminDashboard({ initialTab }) {
                     <th className="py-3.5 px-4">Today's Assigned Route</th>
                     <th className="py-3.5 px-4">Trip Start Time</th>
                     <th className="py-3.5 px-4">Trip Stop Time</th>
+                    <th className="py-3.5 px-4">Last Ping</th>
+                    <th className="py-3.5 px-4">Today's KM</th>
+                    <th className="py-3.5 px-4 text-center">Tracking</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -667,8 +720,8 @@ export default function AdminDashboard({ initialTab }) {
                       if (isNaN(d.getTime())) return false;
                       const today = new Date();
                       return d.getFullYear() === today.getFullYear() &&
-                             d.getMonth() === today.getMonth() &&
-                             d.getDate() === today.getDate();
+                        d.getMonth() === today.getMonth() &&
+                        d.getDate() === today.getDate();
                     };
 
                     const tripIsToday = isTodayDate(emp.tripStartTime);
@@ -704,12 +757,179 @@ export default function AdminDashboard({ initialTab }) {
                         <td className="py-3.5 px-4 font-semibold text-slate-700">
                           {formattedStopTime}
                         </td>
+
+                        <td className="py-3.5 px-4">
+                          {emp.lastLocationTime ? (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-slate-800 text-xs">
+                                {new Date(emp.lastLocationTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </span>
+                              {emp.lastKnownAddress && (
+                                <span className="text-[10px] text-slate-500 truncate max-w-[120px]" title={emp.lastKnownAddress}>
+                                  {emp.lastKnownAddress}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">--</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {emp.todayTravelledDistance > 0 ? `${emp.todayTravelledDistance.toFixed(2)} km` : '--'}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-center">
+                          <button
+                            onClick={() => {
+                              setSelectedTrackingEmployee(emp);
+                              setHistoricalRoute(null);
+                              const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+                              const dateObj = new Date(today);
+                              setTrackingDate(`${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`);
+                            }}
+                            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"
+                          >
+                            Track
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+
+            {selectedTrackingEmployee && (
+                <div className="flex-1 flex flex-col md:flex-row relative">
+                  {/* Journey Timeline Sidebar */}
+                  <div className="w-full md:w-1/3 max-w-sm bg-slate-50/50 border-r border-slate-100 overflow-y-auto p-4 custom-scrollbar">
+                    <h4 className="text-sm font-bold text-slate-800 mb-4 px-2">Journey Timeline</h4>
+                    {!historicalRoute?.origin && (
+                      <div className="text-sm text-slate-500 px-2">No journey data available for this date.</div>
+                    )}
+                    {historicalRoute?.origin && (
+                      <div className="relative pl-6 space-y-6 before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                        
+                        {/* Build Timeline Data */}
+                        {(() => {
+                          const timeline = [];
+                          
+                          // Helper to ensure all timestamps are treated as local time
+                          // The backend returns GPS pings with 'Z' (UTC) and Checkpoints without 'Z' (Local).
+                          // This normalizes them so they all display as intended local times.
+                          const normalizeTime = (ts) => new Date(ts.replace('Z', ''));
+
+                          // 1. START
+                          const hasPings = historicalRoute.gpsPings && historicalRoute.gpsPings.length > 0;
+                          
+                          if (hasPings) {
+                              const firstPing = historicalRoute.gpsPings[0];
+                              timeline.push({
+                                  id: 'origin',
+                                  type: 'Start',
+                                  name: historicalRoute.origin?.name || 'Trip Started',
+                                  timestamp: firstPing.timestamp,
+                                  lat: firstPing.latitude || firstPing.lat,
+                                  lng: firstPing.longitude || firstPing.lng,
+                                  color: 'bg-emerald-500',
+                                  textColor: 'text-emerald-700'
+                              });
+                          } else if (historicalRoute.origin) {
+                              timeline.push({
+                                  id: 'origin',
+                                  type: 'Start',
+                                  name: historicalRoute.origin.name || 'Trip Started',
+                                  timestamp: historicalRoute.origin.timestamp,
+                                  lat: historicalRoute.origin.latitude || historicalRoute.origin.lat,
+                                  lng: historicalRoute.origin.longitude || historicalRoute.origin.lng,
+                                  color: 'bg-emerald-500',
+                                  textColor: 'text-emerald-700'
+                              });
+                          }
+
+                          // 2. CHECKPOINTS
+                          if (historicalRoute.checkpoints && historicalRoute.checkpoints.length > 0) {
+                              const sortedCheckpoints = [...historicalRoute.checkpoints].sort((a, b) => normalizeTime(a.timestamp) - normalizeTime(b.timestamp));
+                              sortedCheckpoints.forEach((cp, idx) => {
+                                  timeline.push({
+                                      id: `cp-${idx}`,
+                                      type: cp.type === 'FieldVisit' ? 'Field Visit' : 'Order Booking',
+                                      name: cp.name || cp.village || 'Checkpoint',
+                                      timestamp: cp.timestamp,
+                                      lat: cp.latitude || cp.lat,
+                                      lng: cp.longitude || cp.lng,
+                                      color: cp.type === 'FieldVisit' ? 'bg-purple-500' : 'bg-amber-500',
+                                      textColor: cp.type === 'FieldVisit' ? 'text-purple-700' : 'text-amber-700'
+                                  });
+                              });
+                          }
+
+                          // 3. END
+                          if (hasPings && historicalRoute.gpsPings.length > 1) {
+                              const lastPing = historicalRoute.gpsPings[historicalRoute.gpsPings.length - 1];
+                              timeline.push({
+                                  id: 'destination',
+                                  type: 'End',
+                                  name: historicalRoute.destination?.name || 'Last Known Location',
+                                  timestamp: lastPing.timestamp,
+                                  lat: lastPing.latitude || lastPing.lat,
+                                  lng: lastPing.longitude || lastPing.lng,
+                                  color: 'bg-rose-500',
+                                  textColor: 'text-rose-700'
+                              });
+                          } else if (historicalRoute.destination) {
+                              timeline.push({
+                                  id: 'destination',
+                                  type: 'End',
+                                  name: historicalRoute.destination.name || 'Last Known Location',
+                                  timestamp: historicalRoute.destination.timestamp,
+                                  lat: historicalRoute.destination.latitude || historicalRoute.destination.lat,
+                                  lng: historicalRoute.destination.longitude || historicalRoute.destination.lng,
+                                  color: 'bg-rose-500',
+                                  textColor: 'text-rose-700'
+                              });
+                          }
+
+                          return timeline.map((item, idx) => (
+                            <div key={item.id} className="relative flex items-start gap-4 group">
+                              <div className={`absolute -left-6 w-4 h-4 rounded-full border-4 border-white shadow-sm ${item.color} z-10 top-1 transition-transform group-hover:scale-125`}></div>
+                              <div className="flex-1 bg-white p-3 rounded-xl shadow-sm border border-slate-100 hover:border-slate-300 hover:shadow-md transition-all">
+                                <div className="flex justify-between items-start gap-2 mb-1">
+                                  <span className={`text-xs font-bold ${item.textColor} uppercase tracking-wider`}>{item.type}</span>
+                                  <span className="text-xs font-semibold text-slate-500">
+                                    {normalizeTime(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  </span>
+                                </div>
+                                <div className="font-bold text-slate-800 text-sm mb-1">{item.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  {item.lat?.toFixed(5)}, {item.lng?.toFixed(5)}
+                                </div>
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                        
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Map Area */}
+                  <div className="flex-1 p-2 relative min-h-[400px]">
+                     <button 
+                       onClick={() => setSelectedTrackingEmployee(null)}
+                       className="absolute top-4 right-4 z-[1000] bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                     >
+                       Close Map
+                     </button>
+                     <LiveTrackingMap 
+                       historicalRoute={historicalRoute} 
+                       liveLocation={selectedTrackingEmployee.lastLatitude && selectedTrackingEmployee.lastLongitude ? { latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
+                       lastKnownAddress={selectedTrackingEmployee.lastKnownAddress ? { address: selectedTrackingEmployee.lastKnownAddress, latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
+                     />
+                  </div>
+                </div>
+            )}
           </div>
         )}
 

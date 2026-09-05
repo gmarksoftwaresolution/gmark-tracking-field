@@ -212,6 +212,8 @@ export default function EmployeeDetail() {
     if (id) fetchEmployeeData();
   }, [id]);
 
+
+
   const handleDeleteOrder = async (orderId) => {
     if (window.confirm("Are you sure you want to delete this order?")) {
       try {
@@ -268,6 +270,12 @@ export default function EmployeeDetail() {
   const todaysOrders = dailyReport?.totalOrders || 0;
   const todaysSales = dailyReport?.totalSales || 0;
   const monthlySales = monthlyReport?.totalSales || 0;
+
+  const calculateOrderTotal = (order) => {
+    return order.grandTotal > 0 ? order.grandTotal : (order.products?.reduce((sum, p) => sum + (p.rowTotal || (p.quantity * p.unitPrice)), 0) || 0);
+  };
+
+  const totalSalesAllTime = [...pendingOrders, ...deliveredOrders].reduce((sum, order) => sum + calculateOrderTotal(order), 0);
 
   const handleDownloadExcel = () => {
     const wb = XLSX.utils.book_new();
@@ -391,6 +399,11 @@ export default function EmployeeDetail() {
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
             <h3 className="text-sm font-medium text-slate-500 mb-1">Monthly Sales</h3>
             <p className="text-3xl font-bold text-slate-800">₹{monthlySales}</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
+            <h3 className="text-sm font-medium text-slate-500 mb-1">Total Sales</h3>
+            <p className="text-3xl font-bold text-slate-800">₹{totalSalesAllTime}</p>
           </div>
 
           <div className="bg-purple-600 rounded-2xl shadow-lg p-6 text-white flex flex-col justify-center items-center transform transition-transform hover:-translate-y-1">
@@ -617,6 +630,8 @@ export default function EmployeeDetail() {
               </table>
             </div>
           </div>
+
+
 
         </div>
       </main>

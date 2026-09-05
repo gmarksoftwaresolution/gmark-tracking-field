@@ -12,6 +12,7 @@ import OrderBookings from './pages/OrderBookings';
 import FieldVisits from './pages/FieldVisits';
 import CancelledOrders from './pages/CancelledOrders';
 import RoutesPage from './pages/RoutesPage';
+import BackgroundTracker from './components/BackgroundTracker';
 
 function RootRedirect() {
   return <Navigate to="/welcome" replace />;
@@ -20,6 +21,7 @@ function RootRedirect() {
 function App() {
   return (
     <Router>
+      <BackgroundTracker />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/welcome" element={<Welcome />} />

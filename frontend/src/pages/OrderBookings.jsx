@@ -503,7 +503,7 @@ export default function OrderBookings() {
             </h2>
 
             <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center gap-6 justify-between">
-              
+
               <div className="flex-1 w-full space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm">
                   <span className="text-slate-500 font-medium w-24">Date & Time:</span>

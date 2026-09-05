@@ -1,10 +1,10 @@
-import axios from 'axios';
+import axios from 'axios';
 
 // Debug environment variable
 console.log("VITE_API_URL is:", import.meta.env.VITE_API_URL);
 
 // Get the URL from env, fallback to the current hostname for local network access
-let rawUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5159/api`;
+let rawUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5160/api`;
 
 // Ensure the URL always ends with /api to prevent missing path issues
 if (!rawUrl.endsWith('/api')) {
@@ -34,6 +34,7 @@ export const deleteEmployee = (id) => api.delete(`/employees/${id}`).then(res =>
 export const startTrip = (id, routeCode) => api.put(`/employees/${id}/start-trip`, { routeCode }).then(res => res.data);
 export const stopTrip = (id) => api.put(`/employees/${id}/stop-trip`).then(res => res.data);
 export const saveEmployeeRoute = (id, routeCode) => api.put(`/employees/${id}/save-route`, { routeCode }).then(res => res.data);
+export const sendLocation = (data) => api.post('/tracking/location', data).then(res => res.data);
 
 // --- Auth API ---
 export const loginEmployee = (data) => api.post('/auth/employee-login', data).then(res => res.data);
@@ -61,6 +62,7 @@ export const createFieldVisit = (data) => api.post('/fieldvisits', data).then(re
 export const updateFieldVisit = (id, data) => api.put(`/fieldvisits/${id}`, data).then(res => res.data);
 export const deleteFieldVisit = (id) => api.delete(`/fieldvisits/${id}`).then(res => res.data);
 
+
 // --- Reports API ---
 export const getDailyReport = () => api.get('/reports/daily').then(res => res.data);
 export const getEmployeeDailyReport = (employeeId) => api.get(`/reports/daily/${employeeId}`).then(res => res.data);
@@ -68,3 +70,17 @@ export const getMonthlyReport = () => api.get('/reports/monthly').then(res => re
 export const getEmployeeMonthlyReport = (employeeId) => api.get(`/reports/monthly/${employeeId}`).then(res => res.data);
 
 export default api;
+export const getHistoricalRoute = (employeeId, date = null) => {
+    let dateStr = date;
+    if (!dateStr) {
+        // Generate current India date in YYYY-MM-DD format
+        const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+        const dateObj = new Date(today);
+        const yyyy = dateObj.getFullYear();
+        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(dateObj.getDate()).padStart(2, '0');
+        dateStr = `${yyyy}-${mm}-${dd}`;
+    }
+    
+    return api.get(`/tracking/route/${employeeId}?date=${dateStr}`).then(res => res.data);
+};
