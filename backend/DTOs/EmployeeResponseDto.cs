@@ -15,6 +15,13 @@ namespace NavbharatAgroAPI.DTOs
         public string? SelectedRouteCode { get; set; }
         public DateTime CreatedAt { get; set; }
         public string Message { get; set; } = string.Empty;
+
+        // Location Tracking Fields
+        public double? LastLatitude { get; set; }
+        public double? LastLongitude { get; set; }
+        public DateTime? LastLocationTimestamp { get; set; }
+        public string? LastKnownAddress { get; set; }
+        public double TodayTravelledDistance { get; set; }
     }
 
     public class StartTripRequestDto

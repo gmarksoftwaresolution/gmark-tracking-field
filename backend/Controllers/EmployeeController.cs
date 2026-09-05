@@ -64,7 +64,12 @@ namespace NavbharatAgroAPI.Controllers
                         TripEndTime = isToday ? e.TripEndTime : null,
                         SelectedRouteCode = e.SelectedRouteCode,
                         CreatedAt = e.CreatedAt,
-                        Message = "Retrieved Successfully"
+                        Message = "Retrieved Successfully",
+                        LastLatitude = e.LastLatitude,
+                        LastLongitude = e.LastLongitude,
+                        LastLocationTimestamp = e.LastLocationTimestamp,
+                        LastKnownAddress = e.LastKnownAddress,
+                        TodayTravelledDistance = e.TodayTravelledDistance
                     };
                 }));
             }
@@ -110,7 +115,12 @@ namespace NavbharatAgroAPI.Controllers
                     TripEndTime = isToday ? employee.TripEndTime : null,
                     SelectedRouteCode = employee.SelectedRouteCode,
                     CreatedAt = employee.CreatedAt,
-                    Message = "Retrieved Successfully"
+                    Message = "Retrieved Successfully",
+                    LastLatitude = employee.LastLatitude,
+                    LastLongitude = employee.LastLongitude,
+                    LastLocationTimestamp = employee.LastLocationTimestamp,
+                    LastKnownAddress = employee.LastKnownAddress,
+                    TodayTravelledDistance = employee.TodayTravelledDistance
                 });
             }
             catch (Exception ex)

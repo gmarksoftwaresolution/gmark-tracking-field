@@ -1,31 +1,13 @@
-# Base runtime image (.NET 8)
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
-
-# Build image (.NET 8)
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
+COPY *.csproj ./
+RUN dotnet restore
+COPY . ./
+RUN dotnet publish -c Release -o /app/out
 
-# Copy project file and restore
-COPY ["NavbharatAgroAPI.csproj", "./"]
-RUN dotnet restore "NavbharatAgroAPI.csproj"
-
-# Copy source
-COPY . .
-
-# Build
-RUN dotnet build "NavbharatAgroAPI.csproj" -c Release -o /app/build
-
-# Publish
-FROM build AS publish
-RUN dotnet publish "NavbharatAgroAPI.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-# Final image
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
-COPY --from=publish /app/publish .
-
+COPY --from=build /app/out .
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
 ENTRYPOINT ["dotnet", "NavbharatAgroAPI.dll"]

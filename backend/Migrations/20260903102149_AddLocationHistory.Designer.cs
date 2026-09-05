@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NavbharatAgroAPI.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NavbharatAgroAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903102149_AddLocationHistory")]
+    partial class AddLocationHistory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -42,18 +45,6 @@ namespace NavbharatAgroAPI.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("LastKnownAddress")
-                        .HasColumnType("text");
-
-                    b.Property<double?>("LastLatitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<DateTime?>("LastLocationTimestamp")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double?>("LastLongitude")
-                        .HasColumnType("double precision");
-
                     b.Property<string>("MobileNumber")
                         .IsRequired()
                         .HasMaxLength(15)
@@ -69,9 +60,6 @@ namespace NavbharatAgroAPI.Migrations
 
                     b.Property<string>("SelectedRouteCode")
                         .HasColumnType("text");
-
-                    b.Property<double>("TodayTravelledDistance")
-                        .HasColumnType("double precision");
 
                     b.Property<DateTime?>("TripEndTime")
                         .HasColumnType("timestamp with time zone");

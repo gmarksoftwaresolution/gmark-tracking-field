@@ -39,10 +39,19 @@ namespace NavbharatAgroAPI.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        public double? LastLatitude { get; set; }
+        public double? LastLongitude { get; set; }
+        public DateTime? LastLocationTimestamp { get; set; }
+        public string? LastKnownAddress { get; set; }
+        public double TodayTravelledDistance { get; set; } = 0;
+
         [JsonIgnore]
         public ICollection<OrderBooking> OrderBookings { get; set; } = new List<OrderBooking>();
         
         [JsonIgnore]
         public ICollection<FieldVisit> FieldVisits { get; set; } = new List<FieldVisit>();
+        
+        [JsonIgnore]
+        public ICollection<LocationHistory> LocationHistories { get; set; } = new List<LocationHistory>();
     }
 }

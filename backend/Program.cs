@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NavbharatAgroAPI.Data;
+using NavbharatAgroAPI.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +41,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 
 builder.Services.AddEndpointsApiExplorer();
 
@@ -102,6 +104,7 @@ app.UseCors("AllowFrontend");
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<TrackingHub>("/hubs/tracking");
 
 app.MapGet("/health", () => Results.Ok("Healthy"));
 

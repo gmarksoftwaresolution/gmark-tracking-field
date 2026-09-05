@@ -16,6 +16,7 @@ namespace NavbharatAgroAPI.Data
         public DbSet<FieldVisit> FieldVisits { get; set; }
         public DbSet<RouteMaster> RouteMasters { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<LocationHistory> LocationHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -94,6 +95,16 @@ namespace NavbharatAgroAPI.Data
                 new Product { Id = 15, ProductCode = "P15", ProductName = "Murghas", DealerPrice = 0, DairyFarmerPrice = 0, IsActive = true, CreatedAt = new System.DateTime(2023, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
                 new Product { Id = 16, ProductCode = "P16", ProductName = "Sarki", DealerPrice = 0, DairyFarmerPrice = 0, IsActive = true, CreatedAt = new System.DateTime(2023, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) }
             );
+
+            // 7. LocationHistory Relationships and Indexes
+            modelBuilder.Entity<LocationHistory>()
+                .HasOne(lh => lh.Employee)
+                .WithMany(e => e.LocationHistories)
+                .HasForeignKey(lh => lh.EmployeeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LocationHistory>()
+                .HasIndex(lh => lh.Timestamp);
         }
     }
 }
