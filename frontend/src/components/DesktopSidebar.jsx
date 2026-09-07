@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { sendLocation } from '../services/api';
 
 export default function DesktopSidebar() {
   const location = useLocation();
@@ -6,7 +7,19 @@ export default function DesktopSidebar() {
 
   const employeeName = localStorage.getItem('employeeName') || localStorage.getItem('rememberedEmployeeName') || 'Employee';
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const empId = localStorage.getItem('employeeId') || localStorage.getItem('rememberedEmployeeId');
+    if (empId) {
+      try {
+        await sendLocation({
+          employeeId: parseInt(empId, 10),
+          timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString()
+        });
+      } catch (err) {
+        console.error("Failed to send offline ping", err);
+      }
+    }
+
     localStorage.removeItem('employeeName');
     localStorage.removeItem('employeeId');
     localStorage.removeItem('employeeToken');

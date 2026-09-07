@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { getEmployeeOrderBookings, getEmployeePendingOrders, getEmployeeDeliveredOrders, getEmployeeCancelledOrders } from '../services/api';
+import { getEmployeeOrderBookings, getEmployeePendingOrders, getEmployeeDeliveredOrders, getEmployeeCancelledOrders, sendLocation } from '../services/api';
 import BottomNav from '../components/BottomNav';
 import DesktopSidebar from '../components/DesktopSidebar';
 
@@ -47,7 +47,20 @@ export default function EmployeeDashboard() {
     day: 'numeric',
   }).format(new Date());
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const empId = localStorage.getItem('employeeId') || localStorage.getItem('rememberedEmployeeId');
+    if (empId) {
+      try {
+        // Send a ping with a timestamp from 10 minutes ago to mark them offline immediately
+        await sendLocation({
+          employeeId: parseInt(empId, 10),
+          timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString()
+        });
+      } catch (err) {
+        console.error("Failed to send offline ping", err);
+      }
+    }
+
     localStorage.removeItem('employeeName');
     localStorage.removeItem('employeeId');
     localStorage.removeItem('employeeToken');

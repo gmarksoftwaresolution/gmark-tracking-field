@@ -9,7 +9,8 @@ import {
   deleteEmployee,
   getCancelledOrders,
   deleteOrderBooking,
-  getHistoricalRoute
+  getHistoricalRoute,
+  getMonthlyTravelReport
 } from '../services/api';
 import LiveTrackingMap from '../components/LiveTrackingMap';
 
@@ -121,6 +122,9 @@ export default function AdminDashboard({ initialTab }) {
   // Reports Data states
   const [dailyReports, setDailyReports] = useState([]);
   const [monthlyReports, setMonthlyReports] = useState([]);
+  const [monthlyTravelReports, setMonthlyTravelReports] = useState([]);
+  const [selectedTravelEmployee, setSelectedTravelEmployee] = useState(null);
+  const [selectedTravelMonth, setSelectedTravelMonth] = useState('');
   const [cancelledOrders, setCancelledOrders] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState('');
@@ -343,6 +347,19 @@ export default function AdminDashboard({ initialTab }) {
           console.error(err);
           setReportError('Failed to fetch cancelled orders.');
         }
+      } else if (activeTab === 'monthly-travel') {
+        try {
+          const data = await getMonthlyTravelReport();
+          setMonthlyTravelReports(data);
+          
+          setMonthlyTravelReports((currentData) => {
+             // We do this to get latest month without stale state dependency inside interval
+             return data;
+          });
+        } catch (err) {
+          console.error(err);
+          setReportError('Failed to fetch monthly travel reports.');
+        }
       }
     };
 
@@ -393,6 +410,12 @@ export default function AdminDashboard({ initialTab }) {
             Monthly Report
           </button>
           <button
+            onClick={() => setActiveTab('monthly-travel')}
+            className={`flex-1 py-4 font-semibold text-center transition-colors ${activeTab === 'monthly-travel' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+          >
+            Monthly Travel
+          </button>
+          <button
             onClick={() => setActiveTab('cancelled')}
             className={`flex-1 py-4 font-semibold text-center transition-colors ${activeTab === 'cancelled' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
           >
@@ -408,6 +431,78 @@ export default function AdminDashboard({ initialTab }) {
 
         {activeTab === 'overview' && (
           <div>
+            {/* Employee Alerts Section */}
+            {(() => {
+              const allAlerts = employees.flatMap(emp => {
+                if (emp.historicalStops && emp.historicalStops.length > 0) {
+                  return emp.historicalStops.map((stop, index) => ({
+                    ...emp,
+                    alertId: `${emp.id}-${index}`,
+                    stoppedDurationMinutes: stop.durationMinutes,
+                    lastKnownAddress: (index === emp.historicalStops.length - 1 && emp.lastKnownAddress) ? emp.lastKnownAddress : `Lat: ${stop.latitude.toFixed(4)}, Lng: ${stop.longitude.toFixed(4)}`,
+                    lastMovementTimestamp: stop.startTime
+                  }));
+                } else {
+                  if (emp.stoppedDurationMinutes >= 30 && emp.lastLocationTimestamp && new Date(emp.lastLocationTimestamp + (emp.lastLocationTimestamp.endsWith('Z') ? '' : 'Z')).toDateString() === new Date().toDateString()) {
+                    return [{
+                      ...emp,
+                      alertId: `${emp.id}-legacy`
+                    }];
+                  }
+                  return [];
+                }
+              });
+
+              if (allAlerts.length === 0) return null;
+
+              return (
+                <div className="mb-8">
+                  <h2 className="text-xl font-bold text-red-600 mb-4 flex items-center gap-2">
+                    <span className="animate-pulse">🔴</span> Active Stopped Alerts
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {allAlerts.map(alert => (
+                        <div key={`alert-${alert.alertId}`} className="bg-red-50 border-l-4 border-red-500 p-5 rounded-r-lg shadow-md hover:shadow-lg transition-shadow">
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="font-bold text-red-800 text-lg">Employee Stopped</h3>
+                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold shadow-sm">
+                              {alert.stoppedDurationMinutes} mins
+                            </span>
+                          </div>
+                          <p className="text-red-900 mb-1">
+                            <span className="font-semibold">{alert.name}</span> has stopped for {alert.stoppedDurationMinutes} minutes.
+                          </p>
+                          <p className="text-red-700 text-sm mb-1 truncate" title={alert.lastKnownAddress}>
+                            <strong>Location:</strong> {alert.lastKnownAddress || 'Unknown location'}
+                          </p>
+                          <p className="text-red-700 text-sm mb-4">
+                            <strong>Stopped since:</strong> {new Date(alert.lastMovementTimestamp + (alert.lastMovementTimestamp.endsWith('Z') ? '' : 'Z')).toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          <button
+                            onClick={() => {
+                              setSelectedTrackingEmployee(alert);
+                              setActiveTab('employee-status');
+                              const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+                              const dateObj = new Date(today);
+                              const yyyy = dateObj.getFullYear();
+                              const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                              const dd = String(dateObj.getDate()).padStart(2, '0');
+                              setTrackingDate(`${yyyy}-${mm}-${dd}`);
+                              setTimeout(() => {
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }, 100);
+                            }}
+                            className="bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition-colors text-sm font-medium w-full text-center"
+                          >
+                            View on Map
+                          </button>
+                        </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Employees Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-8">
               <div className="flex justify-between items-center mb-6">
@@ -617,6 +712,84 @@ export default function AdminDashboard({ initialTab }) {
           </div>
         )}
 
+        {/* Monthly Travel Report Tab */}
+        {activeTab === 'monthly-travel' && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+            <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-800">Monthly Employee Travel Report</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-600">Month:</span>
+                {(() => {
+                  const allAvailableMonths = Array.from(new Set(monthlyTravelReports.flatMap(r => Object.keys(r.monthlyData || {})))).sort((a,b) => new Date("01 " + b) - new Date("01 " + a));
+                  const currentMonth = selectedTravelMonth || (allAvailableMonths.length > 0 ? allAvailableMonths[0] : '');
+                  
+                  // Initialize default if empty and data exists
+                  if (!selectedTravelMonth && currentMonth && monthlyTravelReports.length > 0) {
+                      setTimeout(() => setSelectedTravelMonth(currentMonth), 0);
+                  }
+
+                  return (
+                    <select
+                      value={currentMonth}
+                      onChange={(e) => setSelectedTravelMonth(e.target.value)}
+                      className="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2"
+                    >
+                      {allAvailableMonths.length === 0 && <option value="">No Data</option>}
+                      {allAvailableMonths.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {reportError && (
+              <div className="m-6 bg-red-50 text-red-700 p-4 rounded-xl border border-red-200">
+                {reportError}
+              </div>
+            )}
+
+            {reportLoading ? (
+              <p className="p-6 text-slate-500">Loading monthly travel report...</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-600">
+                      <th className="p-4 font-semibold">Employee Name</th>
+                      <th className="p-4 font-semibold text-indigo-600">{selectedTravelMonth || 'Selected Month'} KM</th>
+                      <th className="p-4 font-semibold text-emerald-600">All-Time KM</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyTravelReports.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="p-4 text-center text-slate-500 border-b border-slate-100">No travel data found.</td>
+                      </tr>
+                    ) : (
+                      monthlyTravelReports.map(report => {
+                        const monthData = report.monthlyData[selectedTravelMonth];
+                        const monthKm = monthData ? monthData.totalKm : 0;
+                        
+                        return (
+                          <tr key={report.employeeId} className="border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition-colors" onClick={() => setSelectedTravelEmployee(report)}>
+                            <td className="p-4 font-bold text-slate-800 text-blue-600 hover:underline">{report.employeeName}</td>
+                            <td className="p-4 text-slate-600">
+                              {monthKm.toFixed(2)} km
+                            </td>
+                            <td className="p-4 font-bold text-emerald-700">{report.allTimeKm.toFixed(2)} km</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Cancelled Orders Tab */}
         {activeTab === 'cancelled' && (
           <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
@@ -716,22 +889,22 @@ export default function AdminDashboard({ initialTab }) {
                     const empNameClean = emp.name.replace(/\s+Employee$/i, '').trim();
                     const isTodayDate = (dateStr) => {
                       if (!dateStr) return false;
-                      const d = new Date(dateStr);
+                      const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
                       if (isNaN(d.getTime())) return false;
-                      const today = new Date();
-                      return d.getFullYear() === today.getFullYear() &&
-                        d.getMonth() === today.getMonth() &&
-                        d.getDate() === today.getDate();
+                      const todayStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+                      const today = new Date(todayStr);
+                      // Compare dates in IST
+                      return d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }).split(',')[0] === todayStr.split(',')[0];
                     };
 
                     const tripIsToday = isTodayDate(emp.tripStartTime);
 
                     const formattedStartTime = (tripIsToday && emp.tripStartTime)
-                      ? new Date(emp.tripStartTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                      ? new Date(emp.tripStartTime + (emp.tripStartTime.endsWith('Z') ? '' : 'Z')).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
                       : '--';
 
                     const formattedStopTime = (tripIsToday && emp.tripEndTime)
-                      ? new Date(emp.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                      ? new Date(emp.tripEndTime + (emp.tripEndTime.endsWith('Z') ? '' : 'Z')).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
                       : '--';
 
                     // Resolve route for display (e.g. Rohit's manual route or predefined Start -> End route)
@@ -762,7 +935,7 @@ export default function AdminDashboard({ initialTab }) {
                           {emp.lastLocationTime ? (
                             <div className="flex flex-col">
                               <span className="font-semibold text-slate-800 text-xs">
-                                {new Date(emp.lastLocationTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                {new Date(emp.lastLocationTime + (emp.lastLocationTime.endsWith('Z') ? '' : 'Z')).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}
                               </span>
                               {emp.lastKnownAddress && (
                                 <span className="text-[10px] text-slate-500 truncate max-w-[120px]" title={emp.lastKnownAddress}>
@@ -776,7 +949,7 @@ export default function AdminDashboard({ initialTab }) {
                         </td>
 
                         <td className="py-3.5 px-4 font-bold text-slate-800">
-                          {emp.todayTravelledDistance > 0 ? `${emp.todayTravelledDistance.toFixed(2)} km` : '--'}
+                          {emp.todayTravelledDistance > 0 ? `${(emp.todayTravelledDistance / 1000).toFixed(2)} km` : '--'}
                         </td>
 
                         <td className="py-3.5 px-4 text-center">
@@ -801,24 +974,97 @@ export default function AdminDashboard({ initialTab }) {
             </div>
 
             {selectedTrackingEmployee && (
-                <div className="flex-1 flex flex-col md:flex-row relative">
-                  {/* Journey Timeline Sidebar */}
-                  <div className="w-full md:w-1/3 max-w-sm bg-slate-50/50 border-r border-slate-100 overflow-y-auto p-4 custom-scrollbar">
-                    <h4 className="text-sm font-bold text-slate-800 mb-4 px-2">Journey Timeline</h4>
-                    {!historicalRoute?.origin && (
-                      <div className="text-sm text-slate-500 px-2">No journey data available for this date.</div>
-                    )}
-                    {historicalRoute?.origin && (
-                      <div className="relative pl-6 space-y-6 before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                <div className="flex-1 flex flex-col relative border-t border-slate-200 mt-6 pt-6">
+                  {/* Top Bar: Employee Dropdown & Date */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 px-2">
+                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                      <select 
+                        value={selectedTrackingEmployee.id}
+                        onChange={(e) => {
+                          const empId = parseInt(e.target.value, 10);
+                          const emp = employees.find(emp => emp.id === empId);
+                          if (emp) {
+                            setSelectedTrackingEmployee(emp);
+                            setHistoricalRoute(null);
+                          }
+                        }}
+                        className="text-sm font-bold border-slate-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 px-3 bg-white"
+                      >
+                        {employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.name}</option>
+                        ))}
+                      </select>
+                      <input 
+                        type="date"
+                        value={trackingDate}
+                        onChange={handleTrackingDateChange}
+                        className="text-sm font-bold border-slate-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 px-3 bg-white"
+                        max={new Date().toISOString().split('T')[0]} 
+                      />
+                    </div>
+                    <button 
+                      onClick={() => setSelectedTrackingEmployee(null)}
+                      className="bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-red-600 px-4 py-1.5 rounded-lg text-sm font-bold transition-colors w-full sm:w-auto"
+                    >
+                      Close Tracker
+                    </button>
+                  </div>
+
+                  {/* Summary Bar */}
+                  {historicalRoute && (historicalRoute.origin || (historicalRoute.checkpoints && historicalRoute.checkpoints.length > 0)) && (() => {
+                    const normalizeTime = (ts) => new Date(ts.replace('Z', ''));
+                    const startTs = historicalRoute.gpsPings?.length > 0 ? historicalRoute.gpsPings[0].timestamp : (historicalRoute.origin?.timestamp || (historicalRoute.checkpoints?.length > 0 ? historicalRoute.checkpoints[0].timestamp : null));
+                    const destTs = (historicalRoute.gpsPings?.length > 1) ? historicalRoute.gpsPings[historicalRoute.gpsPings.length - 1].timestamp : (historicalRoute.destination?.timestamp || (historicalRoute.checkpoints?.length > 0 ? historicalRoute.checkpoints[historicalRoute.checkpoints.length - 1].timestamp : null));
+                    return (
+                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-6 grid grid-cols-2 md:grid-cols-5 gap-4 text-center divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                        <div className="pt-2 md:pt-0">
+                          <p className="text-xs text-slate-500 mb-1">Trip Start</p>
+                          <p className="font-bold text-slate-800">{startTs ? normalizeTime(startTs).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</p>
+                        </div>
+                        <div className="pt-2 md:pt-0">
+                          <p className="text-xs text-slate-500 mb-1">Trip End</p>
+                          <p className="font-bold text-slate-800">{destTs ? normalizeTime(destTs).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</p>
+                        </div>
+                        <div className="pt-2 md:pt-0">
+                          <p className="text-xs text-slate-500 mb-1">Total Distance</p>
+                          <p className="font-bold text-slate-800">{historicalRoute.totalDistanceKm?.toFixed(2) || 0} km</p>
+                        </div>
+                        <div className="pt-2 md:pt-0">
+                          <p className="text-xs text-slate-500 mb-1">GPS Pings</p>
+                          <p className="font-bold text-slate-800">{historicalRoute.gpsPings?.length || 0}</p>
+                        </div>
+                        <div className="pt-2 md:pt-0">
+                          <p className="text-xs text-slate-500 mb-1">Checkpoints</p>
+                          <p className="font-bold text-slate-800">{historicalRoute.checkpoints?.length || 0}</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex-1 flex flex-col md:flex-row min-h-[500px] border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                    {/* Journey Timeline Sidebar */}
+                    <div className="w-full md:w-1/3 max-w-sm bg-slate-50/50 border-r border-slate-100 overflow-y-auto p-4 custom-scrollbar">
+                      <h4 className="text-sm font-bold text-slate-800 mb-4 px-2">Journey Timeline</h4>
+                      {(!historicalRoute?.origin && (!historicalRoute?.checkpoints || historicalRoute.checkpoints.length === 0)) && (
+                        <div className="text-sm text-slate-500 px-2">No tracking data available for {selectedTrackingEmployee.name} on this date.</div>
+                      )}
+                      {(historicalRoute?.origin || (historicalRoute?.checkpoints && historicalRoute.checkpoints.length > 0)) && (
+                        <div className="relative pl-6 space-y-6 before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                         
                         {/* Build Timeline Data */}
                         {(() => {
                           const timeline = [];
                           
-                          // Helper to ensure all timestamps are treated as local time
-                          // The backend returns GPS pings with 'Z' (UTC) and Checkpoints without 'Z' (Local).
-                          // This normalizes them so they all display as intended local times.
-                          const normalizeTime = (ts) => new Date(ts.replace('Z', ''));
+                          // Helper to properly handle timestamps
+                          const normalizeTime = (ts) => {
+                              if (!ts) return new Date();
+                              let parsedTs = ts;
+                              // If the timestamp doesn't have a Z or an explicit offset, treat as IST (+05:30)
+                              if (!parsedTs.match(/Z|[+-]\d{2}:?\d{2}$/)) {
+                                  parsedTs += '+05:30';
+                              }
+                              return new Date(parsedTs);
+                          };
 
                           // 1. START
                           const hasPings = historicalRoute.gpsPings && historicalRoute.gpsPings.length > 0;
@@ -850,8 +1096,7 @@ export default function AdminDashboard({ initialTab }) {
 
                           // 2. CHECKPOINTS
                           if (historicalRoute.checkpoints && historicalRoute.checkpoints.length > 0) {
-                              const sortedCheckpoints = [...historicalRoute.checkpoints].sort((a, b) => normalizeTime(a.timestamp) - normalizeTime(b.timestamp));
-                              sortedCheckpoints.forEach((cp, idx) => {
+                              historicalRoute.checkpoints.forEach((cp, idx) => {
                                   timeline.push({
                                       id: `cp-${idx}`,
                                       type: cp.type === 'FieldVisit' ? 'Field Visit' : 'Order Booking',
@@ -891,6 +1136,9 @@ export default function AdminDashboard({ initialTab }) {
                               });
                           }
 
+                          // 4. Sort unified timeline chronologically
+                          timeline.sort((a, b) => normalizeTime(a.timestamp).getTime() - normalizeTime(b.timestamp).getTime());
+
                           return timeline.map((item, idx) => (
                             <div key={item.id} className="relative flex items-start gap-4 group">
                               <div className={`absolute -left-6 w-4 h-4 rounded-full border-4 border-white shadow-sm ${item.color} z-10 top-1 transition-transform group-hover:scale-125`}></div>
@@ -898,7 +1146,7 @@ export default function AdminDashboard({ initialTab }) {
                                 <div className="flex justify-between items-start gap-2 mb-1">
                                   <span className={`text-xs font-bold ${item.textColor} uppercase tracking-wider`}>{item.type}</span>
                                   <span className="text-xs font-semibold text-slate-500">
-                                    {normalizeTime(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    {normalizeTime(item.timestamp).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Kolkata'})}
                                   </span>
                                 </div>
                                 <div className="font-bold text-slate-800 text-sm mb-1">{item.name}</div>
@@ -912,21 +1160,16 @@ export default function AdminDashboard({ initialTab }) {
                         
                       </div>
                     )}
-                  </div>
+                    </div>
 
-                  {/* Map Area */}
-                  <div className="flex-1 p-2 relative min-h-[400px]">
-                     <button 
-                       onClick={() => setSelectedTrackingEmployee(null)}
-                       className="absolute top-4 right-4 z-[1000] bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                     >
-                       Close Map
-                     </button>
-                     <LiveTrackingMap 
-                       historicalRoute={historicalRoute} 
-                       liveLocation={selectedTrackingEmployee.lastLatitude && selectedTrackingEmployee.lastLongitude ? { latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
-                       lastKnownAddress={selectedTrackingEmployee.lastKnownAddress ? { address: selectedTrackingEmployee.lastKnownAddress, latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
-                     />
+                    {/* Map Area */}
+                    <div className="flex-1 p-0 relative min-h-[400px]">
+                       <LiveTrackingMap 
+                         historicalRoute={historicalRoute} 
+                         liveLocation={selectedTrackingEmployee.lastLatitude && selectedTrackingEmployee.lastLongitude ? { latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
+                         lastKnownAddress={selectedTrackingEmployee.lastKnownAddress ? { address: selectedTrackingEmployee.lastKnownAddress, latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
+                       />
+                    </div>
                   </div>
                 </div>
             )}
@@ -934,6 +1177,63 @@ export default function AdminDashboard({ initialTab }) {
         )}
 
       </main>
+
+      {/* Travel Drilldown Modal */}
+      {selectedTravelEmployee && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden my-8">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Travel History Details</h3>
+                <p className="text-sm text-indigo-700 font-semibold mt-1">{selectedTravelEmployee.employeeName}</p>
+              </div>
+              <button onClick={() => setSelectedTravelEmployee(null)} className="text-slate-400 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
+              {Object.keys(selectedTravelEmployee.monthlyData || {}).length === 0 ? (
+                <p className="text-slate-500 text-center py-4">No detailed daily data available.</p>
+              ) : (
+                Object.keys(selectedTravelEmployee.monthlyData).sort((a,b) => new Date("01 " + b) - new Date("01 " + a)).map(month => {
+                  const monthData = selectedTravelEmployee.monthlyData[month];
+                  return (
+                    <div key={month} className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                        <h4 className="font-bold text-slate-700">{month}</h4>
+                        <span className="font-bold text-indigo-600">{monthData.totalKm.toFixed(2)} km</span>
+                      </div>
+                      <table className="w-full text-left text-sm">
+                        <tbody>
+                          {monthData.dailyData.map((day, idx) => (
+                            <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                              <td className="px-4 py-3 text-slate-600 font-medium">{day.date}</td>
+                              <td className="px-4 py-3 text-slate-800 text-right">{day.km.toFixed(2)} km</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+              <div className="text-slate-700">
+                <span className="text-sm">All-Time Total: </span>
+                <span className="font-bold text-emerald-600 text-lg">{selectedTravelEmployee.allTimeKm.toFixed(2)} km</span>
+              </div>
+              <button onClick={() => setSelectedTravelEmployee(null)} className="px-5 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors text-sm font-semibold shadow-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Employee Modal */}
       {showAddModal && (

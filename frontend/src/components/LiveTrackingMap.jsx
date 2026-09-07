@@ -16,14 +16,18 @@ const MapController = ({ historicalRoute, liveLocation, lastKnownAddress }) => {
   useEffect(() => {
     if (!map || hasFittedRoute) return;
 
-    const hasUsableRoute = historicalRoute?.origin && historicalRoute?.destination;
+    const hasUsableRoute = (historicalRoute?.origin && historicalRoute?.destination) || (historicalRoute?.checkpoints && historicalRoute.checkpoints.length > 0);
 
     if (hasUsableRoute) {
       const bounds = new window.google.maps.LatLngBounds();
       
       // Include origin and destination
-      bounds.extend(new window.google.maps.LatLng(historicalRoute.origin.latitude || historicalRoute.origin.lat, historicalRoute.origin.longitude || historicalRoute.origin.lng));
-      bounds.extend(new window.google.maps.LatLng(historicalRoute.destination.latitude || historicalRoute.destination.lat, historicalRoute.destination.longitude || historicalRoute.destination.lng));
+      if (historicalRoute.origin) {
+          bounds.extend(new window.google.maps.LatLng(historicalRoute.origin.latitude || historicalRoute.origin.lat, historicalRoute.origin.longitude || historicalRoute.origin.lng));
+      }
+      if (historicalRoute.destination) {
+          bounds.extend(new window.google.maps.LatLng(historicalRoute.destination.latitude || historicalRoute.destination.lat, historicalRoute.destination.longitude || historicalRoute.destination.lng));
+      }
 
       // Include all checkpoints
       if (historicalRoute.checkpoints && historicalRoute.checkpoints.length > 0) {

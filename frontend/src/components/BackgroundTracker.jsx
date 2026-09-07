@@ -10,6 +10,12 @@ export default function BackgroundTracker() {
       
       if (!employeeId) return;
 
+      // Send initial heartbeat so they appear online immediately
+      sendLocation({
+        employeeId: parseInt(employeeId, 10),
+        timestamp: new Date().toISOString()
+      }).catch(err => console.error("Initial heartbeat error:", err));
+
       if ('geolocation' in navigator) {
         watchId = navigator.geolocation.watchPosition(
           (position) => {
@@ -23,6 +29,11 @@ export default function BackgroundTracker() {
           },
           (error) => {
             console.error("Background tracking geolocation error:", error);
+            // Send heartbeat even if location fails so they appear online
+            sendLocation({
+              employeeId: parseInt(employeeId, 10),
+              timestamp: new Date().toISOString()
+            }).catch(err => console.error("Heartbeat error:", err));
           },
           {
             enableHighAccuracy: true,
@@ -38,13 +49,21 @@ export default function BackgroundTracker() {
     // Re-check periodically in case employeeId was added to localStorage after initial load
     const interval = setInterval(() => {
       const employeeId = localStorage.getItem('employeeId') || localStorage.getItem('rememberedEmployeeId');
-      if (employeeId && !watchId) {
-        startTracking();
+      if (employeeId) {
+        if (!watchId) {
+          startTracking();
+        }
+        // Send a periodic heartbeat every 60 seconds (interval is 60k ms now) to keep online status
+        // if stationary, watchPosition might not fire
+        sendLocation({
+          employeeId: parseInt(employeeId, 10),
+          timestamp: new Date().toISOString()
+        }).catch(err => console.error("Heartbeat error:", err));
       } else if (!employeeId && watchId) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
-    }, 10000);
+    }, 60000); // Check and heartbeat every 60 seconds
 
     return () => {
       if (watchId) navigator.geolocation.clearWatch(watchId);

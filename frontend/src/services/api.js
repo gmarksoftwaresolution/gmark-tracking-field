@@ -59,6 +59,7 @@ export const getEmployeeCancelledOrders = (employeeId) => api.get(`/orderbooking
 export const getFieldVisits = () => api.get('/fieldvisits').then(res => res.data);
 export const getFieldVisit = (id) => api.get(`/fieldvisits/${id}`).then(res => res.data);
 export const createFieldVisit = (data) => api.post('/fieldvisits', data).then(res => res.data);
+
 export const updateFieldVisit = (id, data) => api.put(`/fieldvisits/${id}`, data).then(res => res.data);
 export const deleteFieldVisit = (id) => api.delete(`/fieldvisits/${id}`).then(res => res.data);
 
@@ -67,6 +68,7 @@ export const deleteFieldVisit = (id) => api.delete(`/fieldvisits/${id}`).then(re
 export const getDailyReport = () => api.get('/reports/daily').then(res => res.data);
 export const getEmployeeDailyReport = (employeeId) => api.get(`/reports/daily/${employeeId}`).then(res => res.data);
 export const getMonthlyReport = () => api.get('/reports/monthly').then(res => res.data);
+export const getMonthlyTravelReport = () => api.get('/reports/travel-history').then(res => res.data);
 export const getEmployeeMonthlyReport = (employeeId) => api.get(`/reports/monthly/${employeeId}`).then(res => res.data);
 
 export default api;
