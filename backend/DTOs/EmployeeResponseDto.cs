@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace NavbharatAgroAPI.DTOs
 {
@@ -22,6 +23,9 @@ namespace NavbharatAgroAPI.DTOs
         public DateTime? LastLocationTimestamp { get; set; }
         public string? LastKnownAddress { get; set; }
         public double TodayTravelledDistance { get; set; }
+        public int StoppedDurationMinutes { get; set; }
+        public DateTime? LastMovementTimestamp { get; set; }
+        public List<HistoricalStopDto> HistoricalStops { get; set; } = new List<HistoricalStopDto>();
     }
 
     public class StartTripRequestDto

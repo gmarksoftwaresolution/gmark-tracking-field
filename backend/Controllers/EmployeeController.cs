@@ -28,6 +28,34 @@ namespace NavbharatAgroAPI.Controllers
             _logger = logger;
         }
 
+        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            var R = 6371e3; // metres
+            var p1 = lat1 * Math.PI / 180;
+            var p2 = lat2 * Math.PI / 180;
+            var dp = (lat2 - lat1) * Math.PI / 180;
+            var dl = (lon2 - lon1) * Math.PI / 180;
+
+            var a = Math.Sin(dp / 2) * Math.Sin(dp / 2) +
+                    Math.Cos(p1) * Math.Cos(p2) *
+                    Math.Sin(dl / 2) * Math.Sin(dl / 2);
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+            return R * c;
+        }
+
+        private TimeZoneInfo GetIstTimeZone()
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+            }
+        }
+
         /// <summary>
         /// Retrieves a list of all employees.
         /// </summary>
@@ -50,8 +78,67 @@ namespace NavbharatAgroAPI.Controllers
                     .OrderBy(e => e.Id)
                     .ToList();
 
+                var uniqueEmployeeIds = uniqueEmployees.Select(e => e.Id).ToList();
+                var istZone = GetIstTimeZone();
+                var todayIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
+                var todayUtcStart = TimeZoneInfo.ConvertTimeToUtc(todayIst, istZone);
+                var todayUtcEnd = todayUtcStart.AddDays(1);
+
+                var todayPings = await _context.LocationHistories
+                    .Where(lh => uniqueEmployeeIds.Contains(lh.EmployeeId) && lh.Timestamp >= todayUtcStart && lh.Timestamp < todayUtcEnd)
+                    .OrderBy(lh => lh.Timestamp)
+                    .ToListAsync();
+
+                var pingsByEmployee = todayPings.GroupBy(p => p.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+
                 return Ok(uniqueEmployees.Select(e => {
                     bool isToday = e.TripStartTime.HasValue && e.TripStartTime.Value.ToLocalTime().Date == DateTime.Now.Date;
+                    int stoppedDurationMinutes = e.LastMovementTimestamp.HasValue && e.LastLocationTimestamp.HasValue 
+                        ? (int)(e.LastLocationTimestamp.Value - e.LastMovementTimestamp.Value).TotalMinutes 
+                        : 0;
+
+                    var stops = new List<HistoricalStopDto>();
+                    if (pingsByEmployee.TryGetValue(e.Id, out var pings) && pings.Count > 0)
+                    {
+                        var currentStopStart = pings[0];
+                        var lastPing = pings[0];
+
+                        for (int i = 1; i < pings.Count; i++)
+                        {
+                            var ping = pings[i];
+                            double distance = CalculateDistance(lastPing.Latitude, lastPing.Longitude, ping.Latitude, ping.Longitude);
+                            
+                            if (distance >= 15) // Moved!
+                            {
+                                var duration = (lastPing.Timestamp - currentStopStart.Timestamp).TotalMinutes;
+                                if (duration >= 30)
+                                {
+                                    stops.Add(new HistoricalStopDto {
+                                        Latitude = currentStopStart.Latitude,
+                                        Longitude = currentStopStart.Longitude,
+                                        StartTime = currentStopStart.Timestamp,
+                                        EndTime = lastPing.Timestamp,
+                                        DurationMinutes = (int)duration
+                                    });
+                                }
+                                currentStopStart = ping;
+                            }
+                            lastPing = ping;
+                        }
+                        
+                        var finalDuration = (lastPing.Timestamp - currentStopStart.Timestamp).TotalMinutes;
+                        if (finalDuration >= 30)
+                        {
+                            stops.Add(new HistoricalStopDto {
+                                Latitude = currentStopStart.Latitude,
+                                Longitude = currentStopStart.Longitude,
+                                StartTime = currentStopStart.Timestamp,
+                                EndTime = lastPing.Timestamp,
+                                DurationMinutes = (int)finalDuration
+                            });
+                        }
+                    }
+
                     return new EmployeeResponseDto
                     {
                         Id = e.Id,
@@ -69,7 +156,10 @@ namespace NavbharatAgroAPI.Controllers
                         LastLongitude = e.LastLongitude,
                         LastLocationTimestamp = e.LastLocationTimestamp,
                         LastKnownAddress = e.LastKnownAddress,
-                        TodayTravelledDistance = e.TodayTravelledDistance
+                        TodayTravelledDistance = e.TodayTravelledDistance,
+                        StoppedDurationMinutes = stoppedDurationMinutes,
+                        LastMovementTimestamp = e.LastMovementTimestamp,
+                        HistoricalStops = stops
                     };
                 }));
             }

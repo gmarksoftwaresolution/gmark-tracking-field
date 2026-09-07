@@ -42,6 +42,7 @@ namespace NavbharatAgroAPI.Models
         public double? LastLatitude { get; set; }
         public double? LastLongitude { get; set; }
         public DateTime? LastLocationTimestamp { get; set; }
+        public DateTime? LastMovementTimestamp { get; set; }
         public string? LastKnownAddress { get; set; }
         public double TodayTravelledDistance { get; set; } = 0;
 

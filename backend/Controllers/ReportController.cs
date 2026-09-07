@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NavbharatAgroAPI.Data;
 using NavbharatAgroAPI.DTOs;
+using NavbharatAgroAPI.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -263,6 +264,134 @@ namespace NavbharatAgroAPI.Controllers
             {
                 _logger.LogError(ex, "An error occurred while generating monthly report for employee {EmployeeId}.", employeeId);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
+        }
+        [HttpGet("travel-history")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<MonthlyTravelReportDto>))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<MonthlyTravelReportDto>>> GetTravelReportAll()
+        {
+            try
+            {
+                var employees = await _context.Employees.ToListAsync();
+                var locationHistories = await _context.LocationHistories
+                    .OrderBy(lh => lh.EmployeeId)
+                    .ThenBy(lh => lh.Timestamp)
+                    .ToListAsync();
+
+                var istZone = GetIstTimeZone();
+                var reports = new List<MonthlyTravelReportDto>();
+
+                // Group locations by Employee
+                var empLocations = locationHistories.GroupBy(lh => lh.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
+
+                foreach (var emp in employees)
+                {
+                    var report = new MonthlyTravelReportDto
+                    {
+                        EmployeeId = emp.Id,
+                        EmployeeName = emp.Name,
+                        AllTimeKm = 0,
+                        MonthlyData = new Dictionary<string, MonthlyTravelData>()
+                    };
+
+                    if (empLocations.TryGetValue(emp.Id, out var locs) && locs.Any())
+                    {
+                        // Group locations by Date in IST
+                        var locsByDate = locs.GroupBy(lh => TimeZoneInfo.ConvertTimeFromUtc(lh.Timestamp, istZone).Date).ToList();
+
+                        foreach (var dayGroup in locsByDate)
+                        {
+                            var dayPoints = dayGroup.OrderBy(lh => lh.Timestamp).ToList();
+                            double dailyKmMeters = 0;
+                            LocationHistory prev = null;
+
+                            foreach (var current in dayPoints)
+                            {
+                                if (prev != null)
+                                {
+                                    double distanceMetres = CalculateDistance(prev.Latitude, prev.Longitude, current.Latitude, current.Longitude);
+                                    double timeDiffSeconds = (current.Timestamp - prev.Timestamp).TotalSeconds;
+
+                                    if (distanceMetres >= 15 && timeDiffSeconds > 0)
+                                    {
+                                        double speed = distanceMetres / timeDiffSeconds;
+                                        if (speed <= 41.67) // 150 km/h in m/s
+                                        {
+                                            dailyKmMeters += distanceMetres;
+                                        }
+                                    }
+                                }
+                                prev = current;
+                            }
+
+                            double dailyKm = dailyKmMeters / 1000.0;
+                            report.AllTimeKm += dailyKm;
+
+                            var monthKey = dayGroup.Key.ToString("MMM yyyy"); // e.g. "Sep 2026"
+                            var dateStr = dayGroup.Key.ToString("dd-MM-yyyy");
+
+                            if (!report.MonthlyData.ContainsKey(monthKey))
+                            {
+                                report.MonthlyData[monthKey] = new MonthlyTravelData
+                                {
+                                    TotalKm = 0,
+                                    DailyData = new List<DailyTravelData>()
+                                };
+                            }
+
+                            report.MonthlyData[monthKey].TotalKm += dailyKm;
+                            report.MonthlyData[monthKey].DailyData.Add(new DailyTravelData
+                            {
+                                Date = dateStr,
+                                Km = dailyKm
+                            });
+                        }
+                    }
+
+                    // Sort DailyData descending
+                    foreach (var month in report.MonthlyData.Values)
+                    {
+                        month.DailyData = month.DailyData.OrderByDescending(d => DateTime.ParseExact(d.Date, "dd-MM-yyyy", null)).ToList();
+                    }
+
+                    reports.Add(report);
+                }
+
+                return Ok(reports);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while generating travel report for all employees.");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
+        }
+
+        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            var R = 6371e3; // metres
+            var p1 = lat1 * Math.PI / 180;
+            var p2 = lat2 * Math.PI / 180;
+            var dp = (lat2 - lat1) * Math.PI / 180;
+            var dl = (lon2 - lon1) * Math.PI / 180;
+
+            var a = Math.Sin(dp / 2) * Math.Sin(dp / 2) +
+                    Math.Cos(p1) * Math.Cos(p2) *
+                    Math.Sin(dl / 2) * Math.Sin(dl / 2);
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+            return R * c;
+        }
+
+        private TimeZoneInfo GetIstTimeZone()
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
             }
         }
     }

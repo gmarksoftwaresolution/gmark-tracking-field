@@ -75,6 +75,11 @@ namespace NavbharatAgroAPI.Controllers
 
             var currentTimestamp = request.Timestamp ?? DateTime.UtcNow;
 
+            if (!employee.LastLocationTimestamp.HasValue)
+            {
+                employee.LastMovementTimestamp = currentTimestamp;
+            }
+            
             if (employee.LastLocationTimestamp.HasValue)
             {
                 var istZone = GetIstTimeZone();
@@ -84,6 +89,7 @@ namespace NavbharatAgroAPI.Controllers
                 if (currentIstDate > lastIstDate)
                 {
                     employee.TodayTravelledDistance = 0;
+                    employee.LastMovementTimestamp = currentTimestamp;
                 }
             }
 
@@ -92,9 +98,9 @@ namespace NavbharatAgroAPI.Controllers
                 .OrderByDescending(lh => lh.Timestamp)
                 .FirstOrDefaultAsync();
 
-            if (prevLocation != null)
+            if (prevLocation != null && request.Latitude.HasValue && request.Longitude.HasValue)
             {
-                double distanceMetres = CalculateDistance(prevLocation.Latitude, prevLocation.Longitude, request.Latitude, request.Longitude);
+                double distanceMetres = CalculateDistance(prevLocation.Latitude, prevLocation.Longitude, request.Latitude.Value, request.Longitude.Value);
                 double timeDiffSeconds = (currentTimestamp - prevLocation.Timestamp).TotalSeconds;
 
                 if (distanceMetres >= 15 && timeDiffSeconds > 0)
@@ -104,30 +110,41 @@ namespace NavbharatAgroAPI.Controllers
                     {
                         employee.TodayTravelledDistance += distanceMetres;
                     }
+                    employee.LastMovementTimestamp = currentTimestamp;
                 }
             }
+            else if (prevLocation == null)
+            {
+                employee.LastMovementTimestamp = currentTimestamp;
+            }
 
-            employee.LastLatitude = request.Latitude;
-            employee.LastLongitude = request.Longitude;
+            if (request.Latitude.HasValue && request.Longitude.HasValue)
+            {
+                employee.LastLatitude = request.Latitude.Value;
+                employee.LastLongitude = request.Longitude.Value;
+            }
             employee.LastLocationTimestamp = currentTimestamp;
 
             bool shouldGeocode = false;
-            if (string.IsNullOrEmpty(employee.LastKnownAddress))
+            if (request.Latitude.HasValue && request.Longitude.HasValue)
             {
-                shouldGeocode = true;
-            }
-            else
-            {
-                if (_lastGeocodedLocations.TryGetValue(employee.Id, out var lastGeoLoc))
+                if (string.IsNullOrEmpty(employee.LastKnownAddress))
                 {
-                    if (CalculateDistance(lastGeoLoc.Lat, lastGeoLoc.Lng, request.Latitude, request.Longitude) >= 50)
-                    {
-                        shouldGeocode = true;
-                    }
+                    shouldGeocode = true;
                 }
                 else
                 {
-                    shouldGeocode = true; // Establish baseline
+                    if (_lastGeocodedLocations.TryGetValue(employee.Id, out var lastGeoLoc))
+                    {
+                        if (CalculateDistance(lastGeoLoc.Lat, lastGeoLoc.Lng, request.Latitude.Value, request.Longitude.Value) >= 50)
+                        {
+                            shouldGeocode = true;
+                        }
+                    }
+                    else
+                    {
+                        shouldGeocode = true; // Establish baseline
+                    }
                 }
             }
 
@@ -178,7 +195,7 @@ namespace NavbharatAgroAPI.Controllers
                                 if (!string.IsNullOrEmpty(newAddress))
                                 {
                                     employee.LastKnownAddress = newAddress;
-                                    _lastGeocodedLocations[employee.Id] = (request.Latitude, request.Longitude);
+                                    _lastGeocodedLocations[employee.Id] = (request.Latitude.Value, request.Longitude.Value);
                                 }
                             }
                         }
@@ -190,40 +207,48 @@ namespace NavbharatAgroAPI.Controllers
                 }
             }
 
-            var locationHistory = new LocationHistory
+            if (request.Latitude.HasValue && request.Longitude.HasValue)
             {
-                EmployeeId = request.EmployeeId,
-                Latitude = request.Latitude,
-                Longitude = request.Longitude,
-                Timestamp = currentTimestamp
-            };
+                var locationHistory = new LocationHistory
+                {
+                    EmployeeId = request.EmployeeId,
+                    Latitude = request.Latitude.Value,
+                    Longitude = request.Longitude.Value,
+                    Timestamp = currentTimestamp
+                };
 
-            _context.LocationHistories.Add(locationHistory);
+                _context.LocationHistories.Add(locationHistory);
+            }
+
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation($"Location saved successfully for EmployeeId {request.EmployeeId}.");
+            _logger.LogInformation($"Location/Ping saved successfully for EmployeeId {request.EmployeeId}.");
+
+            int stoppedDurationMinutes = employee.LastMovementTimestamp.HasValue ? (int)(currentTimestamp - employee.LastMovementTimestamp.Value).TotalMinutes : 0;
 
             await _hubContext.Clients.All.SendAsync("ReceiveLocationUpdate", new
             {
-                EmployeeId = locationHistory.EmployeeId,
-                Latitude = locationHistory.Latitude,
-                Longitude = locationHistory.Longitude,
-                Timestamp = locationHistory.Timestamp,
+                EmployeeId = employee.Id,
+                Latitude = employee.LastLatitude,
+                Longitude = employee.LastLongitude,
+                Timestamp = currentTimestamp,
                 TravelledDistance = employee.TodayTravelledDistance,
-                LastKnownAddress = employee.LastKnownAddress
+                LastKnownAddress = employee.LastKnownAddress,
+                StoppedDurationMinutes = stoppedDurationMinutes,
+                LastMovementTimestamp = employee.LastMovementTimestamp
             });
 
             var response = new TrackingLocationResponseDto
             {
-                Id = locationHistory.Id,
-                EmployeeId = locationHistory.EmployeeId,
-                Latitude = locationHistory.Latitude,
-                Longitude = locationHistory.Longitude,
-                Timestamp = locationHistory.Timestamp,
+                Id = 0,
+                EmployeeId = employee.Id,
+                Latitude = request.Latitude ?? 0,
+                Longitude = request.Longitude ?? 0,
+                Timestamp = currentTimestamp,
                 Message = "Location saved successfully."
             };
 
-            return CreatedAtAction(nameof(SaveLocation), new { id = locationHistory.Id }, response);
+            return Ok(response);
         }
         [HttpGet("route/{employeeId}")]
         public async Task<IActionResult> GetRoute(int employeeId, [FromQuery] string date)
@@ -264,7 +289,7 @@ namespace NavbharatAgroAPI.Controllers
                     Name = fv.CustomerName,
                     Latitude = fv.Latitude.Value,
                     Longitude = fv.Longitude.Value,
-                    Timestamp = fv.VisitDate.ToDateTime(fv.VisitTime, DateTimeKind.Unspecified)
+                    Timestamp = fv.VisitDate.ToDateTime(fv.VisitTime, DateTimeKind.Utc)
                 });
             }
 
@@ -276,7 +301,7 @@ namespace NavbharatAgroAPI.Controllers
                     Name = ob.CustomerName,
                     Latitude = ob.Latitude.Value,
                     Longitude = ob.Longitude.Value,
-                    Timestamp = ob.BookingDate.ToDateTime(ob.BookingTime, DateTimeKind.Unspecified)
+                    Timestamp = ob.BookingDate.ToDateTime(ob.BookingTime, DateTimeKind.Utc)
                 });
             }
 
@@ -284,7 +309,7 @@ namespace NavbharatAgroAPI.Controllers
 
             foreach (var cp in checkpoints)
             {
-                var cpUtc = TimeZoneInfo.ConvertTimeToUtc(cp.Timestamp, istZone);
+                var cpUtc = cp.Timestamp;
                 // find nearest GPS ping before or at checkpoint time (up to 2 hours before)
                 var latestPing = locationHistories
                     .Where(lh => lh.Timestamp <= cpUtc && lh.Timestamp >= cpUtc.AddHours(-2))
@@ -349,7 +374,8 @@ namespace NavbharatAgroAPI.Controllers
                     EmployeeId = employeeId, 
                     Message = "Insufficient GPS data to generate a route.",
                     TotalDistanceKm = totalDistanceKm,
-                    GpsPings = gpsPings
+                    GpsPings = gpsPings,
+                    Checkpoints = checkpoints
                 });
             }
 

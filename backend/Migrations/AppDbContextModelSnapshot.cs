@@ -54,6 +54,9 @@ namespace NavbharatAgroAPI.Migrations
                     b.Property<double?>("LastLongitude")
                         .HasColumnType("double precision");
 
+                    b.Property<DateTime?>("LastMovementTimestamp")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("MobileNumber")
                         .IsRequired()
                         .HasMaxLength(15)
