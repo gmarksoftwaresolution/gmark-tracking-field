@@ -1,10 +1,14 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAttendance } from '../context/AttendanceContext';
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { attendance, handlePunchClick } = useAttendance();
 
-  const navItems = [
+  const status = attendance?.status || 'NOT_PUNCHED_IN';
+
+  const leftNavItems = [
     {
       id: 'dashboard',
       label: 'Dashboard',
@@ -24,7 +28,10 @@ export default function BottomNav() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
         </svg>
       )
-    },
+    }
+  ];
+
+  const rightNavItems = [
     {
       id: 'order-booking',
       label: 'Order Booking',
@@ -49,15 +56,78 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 py-2">
-      <div className="flex justify-around items-center max-w-md mx-auto">
-        {navItems.map((item) => {
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-slate-200/80 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] px-2 py-1.5">
+      <div className="flex justify-around items-center max-w-md mx-auto relative">
+        {/* Left Nav Links */}
+        {leftNavItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-200 cursor-pointer active:scale-95 ${
+              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 cursor-pointer active:scale-95 ${
+                isActive
+                  ? 'text-blue-600 font-bold scale-105'
+                  : 'text-slate-500 hover:text-slate-800 font-medium'
+              }`}
+            >
+              <div className={`p-1 rounded-lg transition-colors ${isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`}>
+                {item.icon}
+              </div>
+              <span className="text-[10px] tracking-tight mt-0.5">{item.label}</span>
+            </button>
+          );
+        })}
+
+        {/* Central Prominent Round Attendance Action Button */}
+        <div className="flex flex-col items-center justify-center -mt-5">
+          {status === 'NOT_PUNCHED_IN' && (
+            <button
+              onClick={() => handlePunchClick('PUNCH_IN')}
+              className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-700 via-indigo-600 to-blue-500 hover:from-blue-800 hover:to-indigo-700 text-white flex flex-col items-center justify-center shadow-lg shadow-blue-600/40 border-2 border-white transition-all duration-200 cursor-pointer active:scale-95 group"
+              title="Tap to Punch In"
+            >
+              <div className="w-2.5 h-2.5 rounded-full bg-white animate-ping mb-0.5" />
+              <span className="text-[9px] font-black uppercase tracking-tighter">PUNCH IN</span>
+            </button>
+          )}
+
+          {status === 'PUNCHED_IN' && (
+            <button
+              onClick={() => handlePunchClick('PUNCH_OUT')}
+              className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-600 via-orange-600 to-amber-500 hover:from-amber-700 hover:to-orange-700 text-white flex flex-col items-center justify-center shadow-lg shadow-amber-600/40 border-2 border-white transition-all duration-200 cursor-pointer active:scale-95 group"
+              title="Tap to Punch Out"
+            >
+              <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse mb-0.5" />
+              <span className="text-[9px] font-black uppercase tracking-tighter">PUNCH OUT</span>
+            </button>
+          )}
+
+          {status === 'PUNCHED_OUT' && (
+            <div
+              className="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex flex-col items-center justify-center shadow-md border-2 border-white opacity-95"
+              title="Attendance Shift Completed for Today"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-[8px] font-black uppercase tracking-tighter">DONE</span>
+            </div>
+          )}
+
+          <span className="text-[10px] font-extrabold text-slate-700 mt-1">
+            {status === 'PUNCHED_IN' ? 'Punch Out' : status === 'PUNCHED_OUT' ? 'Completed' : 'Punch In'}
+          </span>
+        </div>
+
+        {/* Right Nav Links */}
+        {rightNavItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 cursor-pointer active:scale-95 ${
                 isActive
                   ? 'text-blue-600 font-bold scale-105'
                   : 'text-slate-500 hover:text-slate-800 font-medium'

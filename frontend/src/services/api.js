@@ -4,7 +4,7 @@ import axios from 'axios';
 console.log("VITE_API_URL is:", import.meta.env.VITE_API_URL);
 
 // Get the URL from env, fallback to the current hostname for local network access
-let rawUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5159/api`;
+let rawUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8085/api`;
 
 // Ensure the URL always ends with /api to prevent missing path issues
 if (!rawUrl.endsWith('/api')) {
@@ -66,5 +66,58 @@ export const getDailyReport = () => api.get('/reports/daily').then(res => res.da
 export const getEmployeeDailyReport = (employeeId) => api.get(`/reports/daily/${employeeId}`).then(res => res.data);
 export const getMonthlyReport = () => api.get('/reports/monthly').then(res => res.data);
 export const getEmployeeMonthlyReport = (employeeId) => api.get(`/reports/monthly/${employeeId}`).then(res => res.data);
+
+// --- Master Data Foundation APIs ---
+export const getRoles = () => api.get('/master/roles').then(res => res.data);
+export const getRole = (id) => api.get(`/master/roles/${id}`).then(res => res.data);
+export const createRole = (data) => api.post('/master/roles', data).then(res => res.data);
+export const updateRole = (id, data) => api.put(`/master/roles/${id}`, data).then(res => res.data);
+export const toggleRoleActive = (id) => api.put(`/master/roles/${id}/toggle-active`).then(res => res.data);
+export const assignRolePermissions = (id, permissionIds) => api.post(`/master/roles/${id}/permissions`, { permissionIds }).then(res => res.data);
+
+export const getPermissions = () => api.get('/master/permissions').then(res => res.data);
+
+export const getBranches = () => api.get('/master/branches').then(res => res.data);
+export const getBranch = (id) => api.get(`/master/branches/${id}`).then(res => res.data);
+export const createBranch = (data) => api.post('/master/branches', data).then(res => res.data);
+export const updateBranch = (id, data) => api.put(`/master/branches/${id}`, data).then(res => res.data);
+export const toggleBranchActive = (id) => api.put(`/master/branches/${id}/toggle-active`).then(res => res.data);
+
+export const getDepartments = () => api.get('/master/departments').then(res => res.data);
+export const getDepartment = (id) => api.get(`/master/departments/${id}`).then(res => res.data);
+export const createDepartment = (data) => api.post('/master/departments', data).then(res => res.data);
+export const updateDepartment = (id, data) => api.put(`/master/departments/${id}`, data).then(res => res.data);
+export const toggleDepartmentActive = (id) => api.put(`/master/departments/${id}/toggle-active`).then(res => res.data);
+
+export const getDesignations = () => api.get('/master/designations').then(res => res.data);
+export const getDesignation = (id) => api.get(`/master/designations/${id}`).then(res => res.data);
+export const createDesignation = (data) => api.post('/master/designations', data).then(res => res.data);
+export const updateDesignation = (id, data) => api.put(`/master/designations/${id}`, data).then(res => res.data);
+export const toggleDesignationActive = (id) => api.put(`/master/designations/${id}/toggle-active`).then(res => res.data);
+
+export const getShifts = () => api.get('/master/shifts').then(res => res.data);
+export const getShift = (id) => api.get(`/master/shifts/${id}`).then(res => res.data);
+export const createShift = (data) => api.post('/master/shifts', data).then(res => res.data);
+export const updateShift = (id, data) => api.put(`/master/shifts/${id}`, data).then(res => res.data);
+export const toggleShiftActive = (id) => api.put(`/master/shifts/${id}/toggle-active`).then(res => res.data);
+
+export const getLeaveTypes = () => api.get('/master/leave-types').then(res => res.data);
+export const getLeaveType = (id) => api.get(`/master/leave-types/${id}`).then(res => res.data);
+export const createLeaveType = (data) => api.post('/master/leave-types', data).then(res => res.data);
+export const updateLeaveType = (id, data) => api.put(`/master/leave-types/${id}`, data).then(res => res.data);
+export const toggleLeaveTypeActive = (id) => api.put(`/master/leave-types/${id}/toggle-active`).then(res => res.data);
+
+export const getHolidays = () => api.get('/master/holidays').then(res => res.data);
+export const getHoliday = (id) => api.get(`/master/holidays/${id}`).then(res => res.data);
+export const createHoliday = (data) => api.post('/master/holidays', data).then(res => res.data);
+export const updateHoliday = (id, data) => api.put(`/master/holidays/${id}`, data).then(res => res.data);
+export const toggleHolidayActive = (id) => api.put(`/master/holidays/${id}/toggle-active`).then(res => res.data);
+
+// --- Attendance Punch IN / Punch OUT API ---
+export const getTodayAttendance = (employeeId) => api.get(`/attendance/today/${employeeId}`).then(res => res.data);
+export const getAllTodayAttendance = () => api.get('/attendance/today-all').then(res => res.data);
+export const getAttendanceConfig = () => api.get('/attendance/config').then(res => res.data);
+export const punchIn = (data) => api.post('/attendance/punch-in', data).then(res => res.data);
+export const punchOut = (data) => api.post('/attendance/punch-out', data).then(res => res.data);
 
 export default api;

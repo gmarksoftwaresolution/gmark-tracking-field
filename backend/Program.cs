@@ -39,6 +39,7 @@ else if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PGHOST")))
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddHttpClient<NavbharatAgroAPI.Services.IGeocodingService, NavbharatAgroAPI.Services.GeocodingService>();
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -98,6 +99,8 @@ app.UseSwaggerUI(c =>
 app.UseRouting();
 
 app.UseCors("AllowFrontend");
+
+app.UseStaticFiles();
 
 app.UseAuthorization();
 

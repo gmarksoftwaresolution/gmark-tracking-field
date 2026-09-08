@@ -39,6 +39,31 @@ namespace NavbharatAgroAPI.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        // Master Data Associations (Nullable / Optional)
+        public int? RoleId { get; set; }
+        [ForeignKey(nameof(RoleId))]
+        public RoleMaster? Role { get; set; }
+
+        public int? BranchId { get; set; }
+        [ForeignKey(nameof(BranchId))]
+        public BranchMaster? Branch { get; set; }
+
+        public int? DepartmentId { get; set; }
+        [ForeignKey(nameof(DepartmentId))]
+        public DepartmentMaster? Department { get; set; }
+
+        public int? DesignationId { get; set; }
+        [ForeignKey(nameof(DesignationId))]
+        public DesignationMaster? Designation { get; set; }
+
+        public int? ShiftId { get; set; }
+        [ForeignKey(nameof(ShiftId))]
+        public ShiftMaster? Shift { get; set; }
+
+        public DateTime? JoiningDate { get; set; }
+        [StringLength(30)]
+        public string? EmploymentStatus { get; set; } = "Active";
+
         [JsonIgnore]
         public ICollection<OrderBooking> OrderBookings { get; set; } = new List<OrderBooking>();
         

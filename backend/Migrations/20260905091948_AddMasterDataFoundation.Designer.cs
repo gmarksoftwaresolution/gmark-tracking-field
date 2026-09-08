@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NavbharatAgroAPI.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace NavbharatAgroAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905091948_AddMasterDataFoundation")]
+    partial class AddMasterDataFoundation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,85 +24,6 @@ namespace NavbharatAgroAPI.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("NavbharatAgroAPI.Models.AttendanceRecord", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("AttendanceDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("EmployeeId")
-                        .HasColumnType("integer");
-
-                    b.Property<double?>("PunchInAccuracy")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("PunchInAddress")
-                        .HasMaxLength(250)
-                        .HasColumnType("character varying(250)");
-
-                    b.Property<double?>("PunchInDistance")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("PunchInLatitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("PunchInLongitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("PunchInPhotoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("PunchInTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double?>("PunchOutAccuracy")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("PunchOutAddress")
-                        .HasMaxLength(250)
-                        .HasColumnType("character varying(250)");
-
-                    b.Property<double?>("PunchOutDistance")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("PunchOutLatitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("PunchOutLongitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("PunchOutPhotoUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("PunchOutTime")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmployeeId", "AttendanceDate")
-                        .IsUnique();
-
-                    b.ToTable("AttendanceRecords");
-                });
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.BranchMaster", b =>
                 {
@@ -1026,17 +950,6 @@ namespace NavbharatAgroAPI.Migrations
                             ShiftName = "General Morning Shift",
                             StartTime = new TimeSpan(0, 9, 0, 0, 0)
                         });
-                });
-
-            modelBuilder.Entity("NavbharatAgroAPI.Models.AttendanceRecord", b =>
-                {
-                    b.HasOne("NavbharatAgroAPI.Models.Employee", "Employee")
-                        .WithMany()
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Employee");
                 });
 
             modelBuilder.Entity("NavbharatAgroAPI.Models.Employee", b =>

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { 
-  getEmployee, 
-  getEmployeePendingOrders, 
-  getEmployeeDeliveredOrders, 
+import {
+  getEmployee,
+  getEmployeePendingOrders,
+  getEmployeeDeliveredOrders,
   getFieldVisits,
   getEmployeeDailyReport,
   getEmployeeMonthlyReport,
@@ -55,15 +55,15 @@ const resolveSelectedRoute = (emp) => {
   // Check Rohit's manual route first if employee is Rohit
   if (nameLower.includes('rohit')) {
     const rohitRouteStr = localStorage.getItem('rohitCustomRoute') ||
-                           sessionStorage.getItem('rohitCustomRoute') ||
-                           localStorage.getItem(`rohitCustomRoute_${emp.id}`);
+      sessionStorage.getItem('rohitCustomRoute') ||
+      localStorage.getItem(`rohitCustomRoute_${emp.id}`);
     if (rohitRouteStr) {
       try {
         const parsed = JSON.parse(rohitRouteStr);
         if (parsed.label) return getStartEndLabel(parsed.label);
         if (parsed.startLoc && parsed.endLoc) return `${parsed.startLoc} → ${parsed.endLoc}`;
         if (parsed.path) return getStartEndLabel(parsed.path);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -99,12 +99,12 @@ const validatePasswordRules = (pwd, confirmPwd) => {
 export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [employee, setEmployee] = useState(null);
   const [pendingOrders, setPendingOrders] = useState([]);
   const [deliveredOrders, setDeliveredOrders] = useState([]);
   const [fieldVisits, setFieldVisits] = useState([]);
-  
+
   const [dailyReport, setDailyReport] = useState(null);
   const [monthlyReport, setMonthlyReport] = useState(null);
 
@@ -164,7 +164,7 @@ export default function EmployeeDetail() {
       setError('');
       try {
         const empId = parseInt(id, 10);
-        
+
         let empData;
         try {
           empData = await getEmployee(empId);
@@ -177,8 +177,8 @@ export default function EmployeeDetail() {
 
         // Use Promise.all to fetch the rest of the data simultaneously
         const [
-          pendingData, 
-          deliveredData, 
+          pendingData,
+          deliveredData,
           allVisits,
           dailyData,
           monthlyData
@@ -189,18 +189,18 @@ export default function EmployeeDetail() {
           getEmployeeDailyReport(empId).catch(() => null), // Catch in case report is empty/404
           getEmployeeMonthlyReport(empId).catch(() => null)
         ]);
-        
+
         setEmployee(empData);
         setPendingOrders(pendingData);
         setDeliveredOrders(deliveredData);
-        
+
         // Filter field visits by selected employee ID
         const empVisits = allVisits.filter(v => v.employeeId === empId);
         setFieldVisits(empVisits);
 
         setDailyReport(dailyData);
         setMonthlyReport(monthlyData);
-        
+
       } catch (err) {
         console.error("Error fetching employee details:", err);
         setError(`Failed to fetch data for this employee.`);
@@ -208,7 +208,7 @@ export default function EmployeeDetail() {
         setLoading(false);
       }
     };
-    
+
     if (id) fetchEmployeeData();
   }, [id]);
 
@@ -250,7 +250,7 @@ export default function EmployeeDetail() {
       <div className="min-h-screen bg-slate-50 p-8">
         <div className="max-w-7xl mx-auto bg-white p-6 rounded-2xl shadow border border-red-100 flex flex-col items-start gap-4">
           <p className="text-red-500 font-medium">{error || "Employee not found."}</p>
-          <button 
+          <button
             onClick={() => navigate('/admin-dashboard')}
             className="px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors"
           >
@@ -263,7 +263,7 @@ export default function EmployeeDetail() {
 
   // Derive currently selected route for this employee
   const selectedRoute = resolveSelectedRoute(employee);
-  
+
   // Extract values, fallback to 0 if report missing
   const todaysOrders = dailyReport?.totalOrders || 0;
   const todaysSales = dailyReport?.totalSales || 0;
@@ -320,7 +320,7 @@ export default function EmployeeDetail() {
     <div className="min-h-screen bg-slate-50 flex flex-col animate-fade-in">
       <header className="bg-blue-600 text-white pt-12 pb-20 px-6 rounded-b-3xl shadow-md">
         <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <button 
+          <button
             onClick={() => navigate('/admin-dashboard')}
             className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full transition-colors active:scale-95"
             title="Back to Dashboard"
@@ -334,7 +334,7 @@ export default function EmployeeDetail() {
             <p className="text-blue-100 font-medium mt-2">Employee Detail View &bull; Code: {employee.employeeCode}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => setShowResetModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-amber-500/90 hover:bg-amber-500 backdrop-blur-sm text-white rounded-xl font-medium transition-colors active:scale-95 shadow-sm text-sm"
               title="Reset Password"
@@ -344,7 +344,7 @@ export default function EmployeeDetail() {
               </svg>
               <span className="hidden sm:inline">Reset Password</span>
             </button>
-            <button 
+            <button
               onClick={handleDownloadExcel}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl font-medium transition-colors active:scale-95 text-sm"
               title="Download Excel"
@@ -359,10 +359,10 @@ export default function EmployeeDetail() {
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 -mt-10 mb-12 relative z-10 space-y-8">
-        
+
         {/* Info & Summary Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          
+
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 flex flex-col justify-center items-center sm:col-span-2 lg:col-span-2 transform transition-transform hover:-translate-y-1">
             <h3 className="text-sm font-medium text-slate-500 mb-1">Selected Route</h3>
             <p className="text-xl font-bold text-slate-800 text-center truncate w-full">{selectedRoute}</p>
@@ -402,7 +402,7 @@ export default function EmployeeDetail() {
 
         {/* Data Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
+
           {/* Pending Orders Table */}
           <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden flex flex-col">
             <div className="bg-slate-50 p-6 border-b border-slate-100">
@@ -439,9 +439,9 @@ export default function EmployeeDetail() {
                         <td className="p-4 text-amber-600 font-medium text-right">₹{order.grandTotal > 0 ? order.grandTotal : (order.products?.reduce((sum, p) => sum + (p.rowTotal || (p.quantity * p.unitPrice)), 0) || 0)}</td>
                         <td className="p-4 text-slate-600 text-xs text-center">
                           {order.latitude && order.longitude ? (
-                            <a 
+                            <a
                               href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`}
-                              target="_blank" 
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:underline inline-flex items-center gap-1 justify-center"
                             >
@@ -456,7 +456,7 @@ export default function EmployeeDetail() {
                           )}
                         </td>
                         <td className="p-4 text-center">
-                          <button 
+                          <button
                             onClick={() => handleDeleteOrder(order.id)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
                             title="Delete Order"
@@ -510,9 +510,9 @@ export default function EmployeeDetail() {
                         <td className="p-4 text-emerald-600 font-medium text-right">₹{order.grandTotal > 0 ? order.grandTotal : (order.products?.reduce((sum, p) => sum + (p.rowTotal || (p.quantity * p.unitPrice)), 0) || 0)}</td>
                         <td className="p-4 text-slate-600 text-xs text-center">
                           {order.latitude && order.longitude ? (
-                            <a 
+                            <a
                               href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`}
-                              target="_blank" 
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:underline inline-flex items-center gap-1 justify-center"
                             >
@@ -527,7 +527,7 @@ export default function EmployeeDetail() {
                           )}
                         </td>
                         <td className="p-4 text-center">
-                          <button 
+                          <button
                             onClick={() => handleDeleteOrder(order.id)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
                             title="Delete Order"
@@ -583,9 +583,9 @@ export default function EmployeeDetail() {
                         <td className="p-4 text-slate-600">{visit.visitDate} {visit.visitTime}</td>
                         <td className="p-4 text-slate-600 text-xs">
                           {visit.latitude && visit.longitude ? (
-                            <a 
+                            <a
                               href={`https://www.google.com/maps/search/?api=1&query=${visit.latitude},${visit.longitude}`}
-                              target="_blank" 
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:underline flex items-center gap-1"
                             >
@@ -600,7 +600,7 @@ export default function EmployeeDetail() {
                           )}
                         </td>
                         <td className="p-4 text-center">
-                          <button 
+                          <button
                             onClick={() => handleDeleteVisit(visit.id)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
                             title="Delete Visit"

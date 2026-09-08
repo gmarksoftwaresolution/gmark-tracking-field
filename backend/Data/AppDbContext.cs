@@ -17,6 +17,20 @@ namespace NavbharatAgroAPI.Data
         public DbSet<RouteMaster> RouteMasters { get; set; }
         public DbSet<Product> Products { get; set; }
 
+        // Master Data Foundation DbSets
+        public DbSet<RoleMaster> RoleMasters { get; set; }
+        public DbSet<PermissionMaster> PermissionMasters { get; set; }
+        public DbSet<RolePermission> RolePermissions { get; set; }
+        public DbSet<BranchMaster> BranchMasters { get; set; }
+        public DbSet<DepartmentMaster> DepartmentMasters { get; set; }
+        public DbSet<DesignationMaster> DesignationMasters { get; set; }
+        public DbSet<ShiftMaster> ShiftMasters { get; set; }
+        public DbSet<LeaveTypeMaster> LeaveTypeMasters { get; set; }
+        public DbSet<HolidayMaster> HolidayMasters { get; set; }
+
+        // Attendance Module DbSets
+        public DbSet<AttendanceRecord> AttendanceRecords { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -94,6 +108,99 @@ namespace NavbharatAgroAPI.Data
                 new Product { Id = 15, ProductCode = "P15", ProductName = "Murghas", DealerPrice = 0, DairyFarmerPrice = 0, IsActive = true, CreatedAt = new System.DateTime(2023, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
                 new Product { Id = 16, ProductCode = "P16", ProductName = "Sarki", DealerPrice = 0, DairyFarmerPrice = 0, IsActive = true, CreatedAt = new System.DateTime(2023, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) }
             );
+
+            // 7. Master Data Foundation Configurations & Indexes
+            modelBuilder.Entity<RolePermission>()
+                .HasKey(rp => new { rp.RoleId, rp.PermissionId });
+
+            modelBuilder.Entity<RoleMaster>()
+                .HasIndex(r => r.RoleCode)
+                .IsUnique();
+
+            modelBuilder.Entity<PermissionMaster>()
+                .HasIndex(p => p.PermissionCode)
+                .IsUnique();
+
+            modelBuilder.Entity<BranchMaster>()
+                .HasIndex(b => b.BranchCode)
+                .IsUnique();
+
+            modelBuilder.Entity<DepartmentMaster>()
+                .HasIndex(d => d.DepartmentCode)
+                .IsUnique();
+
+            modelBuilder.Entity<DesignationMaster>()
+                .HasIndex(d => d.DesignationCode)
+                .IsUnique();
+
+            modelBuilder.Entity<ShiftMaster>()
+                .HasIndex(s => s.ShiftCode)
+                .IsUnique();
+
+            modelBuilder.Entity<LeaveTypeMaster>()
+                .HasIndex(l => l.LeaveTypeCode)
+                .IsUnique();
+
+            // Employee Foreign Key Delete Behaviors
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Role)
+                .WithMany(r => r.Employees)
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Branch)
+                .WithMany(b => b.Employees)
+                .HasForeignKey(e => e.BranchId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Department)
+                .WithMany(d => d.Employees)
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Designation)
+                .WithMany(d => d.Employees)
+                .HasForeignKey(e => e.DesignationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Shift)
+                .WithMany(s => s.Employees)
+                .HasForeignKey(e => e.ShiftId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Master Data Seed Data
+            modelBuilder.Entity<RoleMaster>().HasData(
+                new RoleMaster { Id = 1, RoleName = "Super Admin", RoleCode = "SUPER_ADMIN", Description = "Full System & Master Data Access", IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
+                new RoleMaster { Id = 2, RoleName = "Admin", RoleCode = "ADMIN", Description = "Administrative Access", IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
+                new RoleMaster { Id = 3, RoleName = "Branch Manager", RoleCode = "BRANCH_MGR", Description = "Branch & Team Management", IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
+                new RoleMaster { Id = 4, RoleName = "Field Employee", RoleCode = "FIELD_EMP", Description = "Field Staff & Mobile Access", IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) }
+            );
+
+            modelBuilder.Entity<LeaveTypeMaster>().HasData(
+                new LeaveTypeMaster { Id = 1, LeaveTypeName = "Casual Leave", LeaveTypeCode = "CL", MaxDaysPerYear = 12, IsPaid = true, IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
+                new LeaveTypeMaster { Id = 2, LeaveTypeName = "Sick Leave", LeaveTypeCode = "SL", MaxDaysPerYear = 10, IsPaid = true, IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
+                new LeaveTypeMaster { Id = 3, LeaveTypeName = "Earned Leave", LeaveTypeCode = "EL", MaxDaysPerYear = 15, IsPaid = true, IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) },
+                new LeaveTypeMaster { Id = 4, LeaveTypeName = "Loss of Pay", LeaveTypeCode = "LOP", MaxDaysPerYear = 0, IsPaid = false, IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) }
+            );
+
+            modelBuilder.Entity<ShiftMaster>().HasData(
+                new ShiftMaster { Id = 1, ShiftName = "General Morning Shift", ShiftCode = "SH_MORNING", StartTime = new System.TimeSpan(9, 0, 0), EndTime = new System.TimeSpan(18, 0, 0), BreakDurationMinutes = 60, GracePeriodMinutes = 15, HalfDayHoursThreshold = 4.5, FullDayHoursThreshold = 8.0, IsOvernight = false, IsActive = true, CreatedAt = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc) }
+            );
+
+            // AttendanceRecord Indexes & Foreign Keys
+            modelBuilder.Entity<AttendanceRecord>()
+                .HasIndex(a => new { a.EmployeeId, a.AttendanceDate })
+                .IsUnique();
+
+            modelBuilder.Entity<AttendanceRecord>()
+                .HasOne(a => a.Employee)
+                .WithMany()
+                .HasForeignKey(a => a.EmployeeId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

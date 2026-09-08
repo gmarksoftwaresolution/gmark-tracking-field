@@ -26,5 +26,13 @@ namespace NavbharatAgroAPI.DTOs
         public string? Password { get; set; }
 
         public string? ConfirmPassword { get; set; }
+
+        public int? RoleId { get; set; }
+        public int? BranchId { get; set; }
+        public int? DepartmentId { get; set; }
+        public int? DesignationId { get; set; }
+        public int? ShiftId { get; set; }
+        public System.DateTime? JoiningDate { get; set; }
+        public string? EmploymentStatus { get; set; } = "Active";
     }
 }

@@ -40,6 +40,11 @@ namespace NavbharatAgroAPI.Controllers
             try
             {
                 var employees = await _context.Employees
+                    .Include(e => e.Role)
+                    .Include(e => e.Branch)
+                    .Include(e => e.Department)
+                    .Include(e => e.Designation)
+                    .Include(e => e.Shift)
                     .Where(e => e.EmployeeCode != "EMP002" && (e.Name == null || !e.Name.ToLower().Contains("prutivraj")))
                     .ToListAsync();
 
@@ -64,6 +69,18 @@ namespace NavbharatAgroAPI.Controllers
                         TripEndTime = isToday ? e.TripEndTime : null,
                         SelectedRouteCode = e.SelectedRouteCode,
                         CreatedAt = e.CreatedAt,
+                        RoleId = e.RoleId,
+                        RoleName = e.Role?.RoleName,
+                        BranchId = e.BranchId,
+                        BranchName = e.Branch?.BranchName,
+                        DepartmentId = e.DepartmentId,
+                        DepartmentName = e.Department?.DepartmentName,
+                        DesignationId = e.DesignationId,
+                        DesignationName = e.Designation?.DesignationName,
+                        ShiftId = e.ShiftId,
+                        ShiftName = e.Shift?.ShiftName,
+                        JoiningDate = e.JoiningDate,
+                        EmploymentStatus = e.EmploymentStatus,
                         Message = "Retrieved Successfully"
                     };
                 }));
@@ -88,7 +105,13 @@ namespace NavbharatAgroAPI.Controllers
         {
             try
             {
-                var employee = await _context.Employees.FindAsync(id);
+                var employee = await _context.Employees
+                    .Include(e => e.Role)
+                    .Include(e => e.Branch)
+                    .Include(e => e.Department)
+                    .Include(e => e.Designation)
+                    .Include(e => e.Shift)
+                    .FirstOrDefaultAsync(e => e.Id == id);
 
                 if (employee == null)
                 {
@@ -110,6 +133,18 @@ namespace NavbharatAgroAPI.Controllers
                     TripEndTime = isToday ? employee.TripEndTime : null,
                     SelectedRouteCode = employee.SelectedRouteCode,
                     CreatedAt = employee.CreatedAt,
+                    RoleId = employee.RoleId,
+                    RoleName = employee.Role?.RoleName,
+                    BranchId = employee.BranchId,
+                    BranchName = employee.Branch?.BranchName,
+                    DepartmentId = employee.DepartmentId,
+                    DepartmentName = employee.Department?.DepartmentName,
+                    DesignationId = employee.DesignationId,
+                    DesignationName = employee.Designation?.DesignationName,
+                    ShiftId = employee.ShiftId,
+                    ShiftName = employee.Shift?.ShiftName,
+                    JoiningDate = employee.JoiningDate,
+                    EmploymentStatus = employee.EmploymentStatus,
                     Message = "Retrieved Successfully"
                 });
             }
@@ -166,6 +201,13 @@ namespace NavbharatAgroAPI.Controllers
                     EmployeeCode = requestDto.EmployeeCode,
                     MobileNumber = requestDto.MobileNumber,
                     AssignedArea = requestDto.AssignedArea,
+                    RoleId = requestDto.RoleId,
+                    BranchId = requestDto.BranchId,
+                    DepartmentId = requestDto.DepartmentId,
+                    DesignationId = requestDto.DesignationId,
+                    ShiftId = requestDto.ShiftId,
+                    JoiningDate = requestDto.JoiningDate?.ToUniversalTime(),
+                    EmploymentStatus = requestDto.EmploymentStatus ?? "Active",
                     CreatedAt = DateTime.UtcNow,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(rawPasswordToHash),
                     IsActive = true
@@ -181,6 +223,13 @@ namespace NavbharatAgroAPI.Controllers
                     EmployeeCode = employee.EmployeeCode,
                     MobileNumber = employee.MobileNumber,
                     AssignedArea = employee.AssignedArea,
+                    RoleId = employee.RoleId,
+                    BranchId = employee.BranchId,
+                    DepartmentId = employee.DepartmentId,
+                    DesignationId = employee.DesignationId,
+                    ShiftId = employee.ShiftId,
+                    JoiningDate = employee.JoiningDate,
+                    EmploymentStatus = employee.EmploymentStatus,
                     CreatedAt = employee.CreatedAt,
                     Message = "Employee Created Successfully"
                 };
@@ -233,6 +282,19 @@ namespace NavbharatAgroAPI.Controllers
                 employee.EmployeeCode = requestDto.EmployeeCode;
                 employee.MobileNumber = requestDto.MobileNumber;
                 employee.AssignedArea = requestDto.AssignedArea;
+                employee.RoleId = requestDto.RoleId;
+                employee.BranchId = requestDto.BranchId;
+                employee.DepartmentId = requestDto.DepartmentId;
+                employee.DesignationId = requestDto.DesignationId;
+                employee.ShiftId = requestDto.ShiftId;
+                if (requestDto.JoiningDate.HasValue)
+                {
+                    employee.JoiningDate = requestDto.JoiningDate.Value.ToUniversalTime();
+                }
+                if (!string.IsNullOrEmpty(requestDto.EmploymentStatus))
+                {
+                    employee.EmploymentStatus = requestDto.EmploymentStatus;
+                }
 
                 _context.Entry(employee).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
@@ -244,6 +306,13 @@ namespace NavbharatAgroAPI.Controllers
                     EmployeeCode = employee.EmployeeCode,
                     MobileNumber = employee.MobileNumber,
                     AssignedArea = employee.AssignedArea,
+                    RoleId = employee.RoleId,
+                    BranchId = employee.BranchId,
+                    DepartmentId = employee.DepartmentId,
+                    DesignationId = employee.DesignationId,
+                    ShiftId = employee.ShiftId,
+                    JoiningDate = employee.JoiningDate,
+                    EmploymentStatus = employee.EmploymentStatus,
                     CreatedAt = employee.CreatedAt,
                     Message = "Employee Updated Successfully"
                 };

@@ -119,7 +119,7 @@ export default function EmployeeDashboard() {
       </header>
 
       {/* Main Content (2x2 Statistics Cards Grid with Generous Spacing) */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-6 sm:px-8 lg:px-12 py-10 sm:py-12">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-6 sm:px-8 lg:px-12 py-8 sm:py-10 space-y-8">
 
         {/* Statistics Grid Section (2x2 on Mobile/Tablet, 4-Column Row on Laptop/Desktop) */}
         <section className="w-full">

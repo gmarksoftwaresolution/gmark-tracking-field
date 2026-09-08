@@ -12,6 +12,7 @@ import OrderBookings from './pages/OrderBookings';
 import FieldVisits from './pages/FieldVisits';
 import CancelledOrders from './pages/CancelledOrders';
 import RoutesPage from './pages/RoutesPage';
+import { AttendanceProvider } from './context/AttendanceContext';
 
 function RootRedirect() {
   return <Navigate to="/welcome" replace />;
@@ -20,23 +21,25 @@ function RootRedirect() {
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/welcome" element={<Welcome />} />
-        <Route path="/role-selection" element={<Navigate to="/welcome" replace />} />
-        <Route path="/employee-selection" element={<Navigate to="/welcome" replace />} />
-        <Route path="/employee-password" element={<EmployeePassword />} />
-        <Route path="/employee-dashboard" element={<EmployeeDashboard />} />
-        <Route path="/pending-orders" element={<PendingOrders />} />
-        <Route path="/delivered-orders" element={<DeliveredOrders />} />
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/employee-status" element={<AdminDashboard initialTab="employee-status" />} />
-        <Route path="/admin-dashboard/employee/:id" element={<EmployeeDetail />} />
-        <Route path="/order-bookings" element={<OrderBookings />} />
-        <Route path="/field-visits" element={<FieldVisits />} />
-        <Route path="/routes" element={<RoutesPage />} />
-        <Route path="/cancelled-orders" element={<CancelledOrders />} />
-      </Routes>
+      <AttendanceProvider>
+        <Routes>
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/welcome" element={<Welcome />} />
+          <Route path="/role-selection" element={<Navigate to="/welcome" replace />} />
+          <Route path="/employee-selection" element={<Navigate to="/welcome" replace />} />
+          <Route path="/employee-password" element={<EmployeePassword />} />
+          <Route path="/employee-dashboard" element={<EmployeeDashboard />} />
+          <Route path="/pending-orders" element={<PendingOrders />} />
+          <Route path="/delivered-orders" element={<DeliveredOrders />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/employee-status" element={<AdminDashboard initialTab="employee-status" />} />
+          <Route path="/admin-dashboard/employee/:id" element={<EmployeeDetail />} />
+          <Route path="/order-bookings" element={<OrderBookings />} />
+          <Route path="/field-visits" element={<FieldVisits />} />
+          <Route path="/routes" element={<RoutesPage />} />
+          <Route path="/cancelled-orders" element={<CancelledOrders />} />
+        </Routes>
+      </AttendanceProvider>
     </Router>
   );
 }
