@@ -1,0 +1,7 @@
+﻿tunnel: 384f1360-3201-4aaf-b6f3-b24a26b2b49d
+credentials-file: /etc/cloudflared/384f1360-3201-4aaf-b6f3-b24a26b2b49d.json
+
+ingress:
+  - hostname: g-track.4mindia.com
+    service: http://frontend:80
+  - service: http_status:404

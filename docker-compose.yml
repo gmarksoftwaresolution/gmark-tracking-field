@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gtrack_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: gtrack_user
+      POSTGRES_PASSWORD: gtrack_password
+      POSTGRES_DB: gtrack_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - gtrack_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gtrack_user -d gtrack_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gtrack-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gtrack_backend
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=gtrack_db;Username=gtrack_user;Password=gtrack_password"
+      ASPNETCORE_ENVIRONMENT: "Production"
+    ports:
+      - "5001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gtrack-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gtrack_frontend
+    restart: always
+    ports:
+      - "8082:80"
+    depends_on:
+      - backend
+    networks:
+      - gtrack-network
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: gtrack_tunnel
+    restart: always
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflare:/etc/cloudflared
+    depends_on:
+      - frontend
+    networks:
+      - gtrack-network
+
+volumes:
+  gtrack_pgdata:
+
+networks:
+  gtrack-network:
+    driver: bridge

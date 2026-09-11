@@ -1,0 +1,9 @@
+# Ignore temporary scripts and dependencies
+temp_db_cleaner/node_modules/
+node_modules/
+*.backup
+*.local
+
+# Ignore Cloudflare tunnel secrets and certs
+cloudflare/*.json
+cloudflare/*.pem
