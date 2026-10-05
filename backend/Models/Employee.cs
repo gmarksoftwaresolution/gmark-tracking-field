@@ -46,6 +46,11 @@ namespace NavbharatAgroAPI.Models
         public string? LastKnownAddress { get; set; }
         public double TodayTravelledDistance { get; set; } = 0;
 
+        public string? DeviceId { get; set; }
+        public string? PendingDeviceId { get; set; }
+        public string? DeviceChangeStatus { get; set; }
+        public int? BatteryLevel { get; set; }
+
         [JsonIgnore]
         public ICollection<OrderBooking> OrderBookings { get; set; } = new List<OrderBooking>();
         

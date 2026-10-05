@@ -26,6 +26,8 @@ namespace NavbharatAgroAPI.DTOs
         public int StoppedDurationMinutes { get; set; }
         public DateTime? LastMovementTimestamp { get; set; }
         public List<HistoricalStopDto> HistoricalStops { get; set; } = new List<HistoricalStopDto>();
+        public string? DeviceChangeStatus { get; set; }
+        public int? BatteryLevel { get; set; }
     }
 
     public class StartTripRequestDto

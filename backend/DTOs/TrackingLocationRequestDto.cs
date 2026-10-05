@@ -15,5 +15,6 @@ namespace NavbharatAgroAPI.DTOs
         public double? Longitude { get; set; }
 
         public DateTime? Timestamp { get; set; }
+        public int? BatteryLevel { get; set; }
     }
 }

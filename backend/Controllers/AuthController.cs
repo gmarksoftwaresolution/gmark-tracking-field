@@ -87,6 +87,42 @@ namespace NavbharatAgroAPI.Controllers
                     return Unauthorized(new { message = "Invalid Password" });
                 }
 
+                if (!string.IsNullOrEmpty(request.DeviceId))
+                {
+                    if (string.IsNullOrEmpty(matchedEmployee.DeviceId))
+                    {
+                        matchedEmployee.DeviceId = request.DeviceId;
+                        await _context.SaveChangesAsync();
+                    }
+                    else if (matchedEmployee.DeviceId != request.DeviceId)
+                    {
+                        if (matchedEmployee.DeviceChangeStatus == "Pending" && matchedEmployee.PendingDeviceId == request.DeviceId)
+                        {
+                            return Ok(new LoginResponseDto
+                            {
+                                EmployeeId = matchedEmployee.Id,
+                                EmployeeName = matchedEmployee.Name,
+                                Token = "",
+                                Message = "Device change request is pending approval from Admin.",
+                                IsDeviceChangePending = true
+                            });
+                        }
+                        
+                        matchedEmployee.PendingDeviceId = request.DeviceId;
+                        matchedEmployee.DeviceChangeStatus = "Pending";
+                        await _context.SaveChangesAsync();
+                        
+                        return Ok(new LoginResponseDto
+                        {
+                            EmployeeId = matchedEmployee.Id,
+                            EmployeeName = matchedEmployee.Name,
+                            Token = "",
+                            Message = "This account is bound to another device. A request has been sent to the Admin for approval.",
+                            IsDeviceChangePending = true
+                        });
+                    }
+                }
+
                 var token = Guid.NewGuid().ToString();
 
                 return Ok(new LoginResponseDto

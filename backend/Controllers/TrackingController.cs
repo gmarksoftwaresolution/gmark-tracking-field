@@ -123,6 +123,10 @@ namespace NavbharatAgroAPI.Controllers
                 employee.LastLatitude = request.Latitude.Value;
                 employee.LastLongitude = request.Longitude.Value;
             }
+            if (request.BatteryLevel.HasValue)
+            {
+                employee.BatteryLevel = request.BatteryLevel.Value;
+            }
             employee.LastLocationTimestamp = currentTimestamp;
 
             bool shouldGeocode = false;

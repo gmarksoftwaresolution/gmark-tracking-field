@@ -73,6 +73,12 @@ namespace NavbharatAgroAPI.Migrations
                     b.Property<string>("SelectedRouteCode")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("TodayPunchInTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("TodayPunchOutTime")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<double>("TodayTravelledDistance")
                         .HasColumnType("double precision");
 

@@ -79,6 +79,15 @@ using (var scope = app.Services.CreateScope())
         // Apply database migrations
         context.Database.Migrate();
 
+        // Reset TodayTravelledDistance to 0 as requested
+        context.Database.ExecuteSqlRaw("UPDATE \"Employees\" SET \"TodayTravelledDistance\" = 0;");
+        context.Database.ExecuteSqlRaw(@"
+            ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""DeviceId"" text NULL;
+            ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""PendingDeviceId"" text NULL;
+            ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""DeviceChangeStatus"" text NULL;
+            ALTER TABLE ""Employees"" ADD COLUMN IF NOT EXISTS ""BatteryLevel"" integer NULL;
+        ");
+
         // Seed initial data
         DbInitializer.SeedEmployees(context);
     }

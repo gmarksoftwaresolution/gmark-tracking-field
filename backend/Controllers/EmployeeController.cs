@@ -93,6 +93,8 @@ namespace NavbharatAgroAPI.Controllers
 
                 return Ok(uniqueEmployees.Select(e => {
                     bool isToday = e.TripStartTime.HasValue && e.TripStartTime.Value.ToLocalTime().Date == DateTime.Now.Date;
+                    bool hasPingedToday = e.LastLocationTimestamp.HasValue && TimeZoneInfo.ConvertTimeFromUtc(e.LastLocationTimestamp.Value, istZone).Date == todayIst;
+
                     int stoppedDurationMinutes = e.LastMovementTimestamp.HasValue && e.LastLocationTimestamp.HasValue 
                         ? (int)(e.LastLocationTimestamp.Value - e.LastMovementTimestamp.Value).TotalMinutes 
                         : 0;
@@ -156,10 +158,12 @@ namespace NavbharatAgroAPI.Controllers
                         LastLongitude = e.LastLongitude,
                         LastLocationTimestamp = e.LastLocationTimestamp,
                         LastKnownAddress = e.LastKnownAddress,
-                        TodayTravelledDistance = e.TodayTravelledDistance,
+                        TodayTravelledDistance = hasPingedToday ? e.TodayTravelledDistance : 0,
                         StoppedDurationMinutes = stoppedDurationMinutes,
                         LastMovementTimestamp = e.LastMovementTimestamp,
-                        HistoricalStops = stops
+                        HistoricalStops = stops,
+                        DeviceChangeStatus = e.DeviceChangeStatus,
+                        BatteryLevel = e.BatteryLevel
                     };
                 }));
             }
@@ -192,6 +196,9 @@ namespace NavbharatAgroAPI.Controllers
                 }
 
                 bool isToday = employee.TripStartTime.HasValue && employee.TripStartTime.Value.ToLocalTime().Date == DateTime.Now.Date;
+                var istZone = GetIstTimeZone();
+                var todayIst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone).Date;
+                bool hasPingedToday = employee.LastLocationTimestamp.HasValue && TimeZoneInfo.ConvertTimeFromUtc(employee.LastLocationTimestamp.Value, istZone).Date == todayIst;
 
                 return Ok(new EmployeeResponseDto
                 {
@@ -210,7 +217,7 @@ namespace NavbharatAgroAPI.Controllers
                     LastLongitude = employee.LastLongitude,
                     LastLocationTimestamp = employee.LastLocationTimestamp,
                     LastKnownAddress = employee.LastKnownAddress,
-                    TodayTravelledDistance = employee.TodayTravelledDistance
+                    TodayTravelledDistance = hasPingedToday ? employee.TodayTravelledDistance : 0
                 });
             }
             catch (Exception ex)
@@ -576,6 +583,41 @@ namespace NavbharatAgroAPI.Controllers
                 _logger.LogError(ex, "An error occurred while resetting password for employee Id {Id}.", id);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
             }
+        }
+
+        [HttpPost("{id}/approve-device")]
+        public async Task<IActionResult> ApproveDeviceChange(int id)
+        {
+            if (!IsAdminRequest()) return Forbid();
+            var employee = await _context.Employees.FindAsync(id);
+            if (employee == null) return NotFound("Employee not found.");
+            
+            if (employee.DeviceChangeStatus == "Pending" && !string.IsNullOrEmpty(employee.PendingDeviceId))
+            {
+                employee.DeviceId = employee.PendingDeviceId;
+                employee.PendingDeviceId = null;
+                employee.DeviceChangeStatus = null;
+                await _context.SaveChangesAsync();
+                return Ok(new { Message = "Device change approved successfully." });
+            }
+            return BadRequest(new { Message = "No pending device change request found." });
+        }
+
+        [HttpPost("{id}/reject-device")]
+        public async Task<IActionResult> RejectDeviceChange(int id)
+        {
+            if (!IsAdminRequest()) return Forbid();
+            var employee = await _context.Employees.FindAsync(id);
+            if (employee == null) return NotFound("Employee not found.");
+            
+            if (employee.DeviceChangeStatus == "Pending")
+            {
+                employee.PendingDeviceId = null;
+                employee.DeviceChangeStatus = null;
+                await _context.SaveChangesAsync();
+                return Ok(new { Message = "Device change rejected successfully." });
+            }
+            return BadRequest(new { Message = "No pending device change request found." });
         }
 
         private bool IsAdminRequest()
