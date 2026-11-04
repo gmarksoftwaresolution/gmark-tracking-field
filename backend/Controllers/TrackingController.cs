@@ -93,41 +93,102 @@ namespace NavbharatAgroAPI.Controllers
                 }
             }
 
-            var prevLocation = await _context.LocationHistories
-                .Where(lh => lh.EmployeeId == request.EmployeeId)
-                .OrderByDescending(lh => lh.Timestamp)
-                .FirstOrDefaultAsync();
+            // Strict rule: Travelled distance ONLY accumulates when employee is actively on a trip!
+            bool isTripStarted = string.Equals(employee.TripStatus, "Started", StringComparison.OrdinalIgnoreCase) && employee.TripStartTime.HasValue;
+            bool isMovementPoint = false;
 
-            if (prevLocation != null && request.Latitude.HasValue && request.Longitude.HasValue)
+            if (isTripStarted && request.Latitude.HasValue && request.Longitude.HasValue && request.Latitude.Value != 0 && request.Longitude.Value != 0)
             {
-                double distanceMetres = CalculateDistance(prevLocation.Latitude, prevLocation.Longitude, request.Latitude.Value, request.Longitude.Value);
-                double timeDiffSeconds = (currentTimestamp - prevLocation.Timestamp).TotalSeconds;
+                // Only compare against locations recorded AFTER the current trip started!
+                var prevLocation = await _context.LocationHistories
+                    .Where(lh => lh.EmployeeId == request.EmployeeId && lh.Timestamp >= employee.TripStartTime.GetValueOrDefault())
+                    .OrderByDescending(lh => lh.Timestamp)
+                    .FirstOrDefaultAsync();
 
-                if (distanceMetres >= 15 && timeDiffSeconds > 0)
+                if (prevLocation != null)
                 {
-                    double speed = distanceMetres / timeDiffSeconds;
-                    if (speed <= 41.67) // 150 km/h in m/s
+                    double distanceMetres = CalculateDistance(prevLocation.Latitude, prevLocation.Longitude, request.Latitude.Value, request.Longitude.Value);
+                    double timeDiffSeconds = (currentTimestamp - prevLocation.Timestamp).TotalSeconds;
+
+                    // Movement filter: at least 8m to avoid GPS jitter, under 5000m to avoid teleports, and max speed 150 km/h (41.67 m/s)
+                    if (distanceMetres >= 8 && distanceMetres <= 5000 && timeDiffSeconds > 0)
                     {
-                        employee.TodayTravelledDistance += distanceMetres;
+                        double speed = distanceMetres / timeDiffSeconds;
+                        if (speed <= 41.67) // max 150 km/h in m/s
+                        {
+                            employee.TodayTravelledDistance += distanceMetres;
+                            isMovementPoint = true;
+                        }
+                        employee.LastMovementTimestamp = currentTimestamp;
                     }
+                }
+                else
+                {
+                    // First location ping of this active trip: establish baseline coordinate
                     employee.LastMovementTimestamp = currentTimestamp;
+                    isMovementPoint = true;
                 }
             }
-            else if (prevLocation == null)
-            {
-                employee.LastMovementTimestamp = currentTimestamp;
-            }
 
-            if (request.Latitude.HasValue && request.Longitude.HasValue)
+
+            if (request.Latitude.HasValue && request.Longitude.HasValue && request.Latitude.Value != 0 && request.Longitude.Value != 0)
             {
                 employee.LastLatitude = request.Latitude.Value;
                 employee.LastLongitude = request.Longitude.Value;
             }
-            if (request.BatteryLevel.HasValue)
+
+            if (!string.IsNullOrWhiteSpace(request.Address))
+            {
+                employee.LastKnownAddress = request.Address.Trim();
+            }
+            else if (!string.IsNullOrWhiteSpace(request.LocationName))
+            {
+                employee.LastKnownAddress = request.LocationName.Trim();
+            }
+
+            if (request.BatteryLevel.HasValue && request.BatteryLevel.Value > 0 && request.BatteryLevel.Value <= 100)
             {
                 employee.BatteryLevel = request.BatteryLevel.Value;
             }
+
             employee.LastLocationTimestamp = currentTimestamp;
+
+            // Reverse geocode if coordinates are present but address is missing
+            if (string.IsNullOrWhiteSpace(employee.LastKnownAddress) && request.Latitude.HasValue && request.Longitude.HasValue && request.Latitude.Value != 0 && request.Longitude.Value != 0)
+            {
+                try
+                {
+                    using var nomClient = new System.Net.Http.HttpClient();
+                    nomClient.DefaultRequestHeaders.Add("User-Agent", "NavbharatAgroAPI/1.0");
+                    nomClient.Timeout = TimeSpan.FromSeconds(4);
+                    var nLat = request.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var nLng = request.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var nomUrl = $"https://nominatim.openstreetmap.org/reverse?format=json&lat={nLat}&lon={nLng}&zoom=18&addressdetails=1";
+                    var nomDoc = await nomClient.GetFromJsonAsync<JsonDocument>(nomUrl);
+                    if (nomDoc != null && nomDoc.RootElement.TryGetProperty("address", out var addrEl))
+                    {
+                        string village = "";
+                        string county = "";
+                        string state = "";
+                        if (addrEl.TryGetProperty("village", out var vEl)) village = vEl.GetString() ?? "";
+                        else if (addrEl.TryGetProperty("suburb", out var sEl)) village = sEl.GetString() ?? "";
+                        else if (addrEl.TryGetProperty("town", out var tEl)) village = tEl.GetString() ?? "";
+                        else if (addrEl.TryGetProperty("city", out var cEl)) village = cEl.GetString() ?? "";
+                        
+                        if (addrEl.TryGetProperty("county", out var coEl)) county = coEl.GetString() ?? "";
+                        else if (addrEl.TryGetProperty("state_district", out var sdEl)) county = sdEl.GetString() ?? "";
+                        
+                        if (addrEl.TryGetProperty("state", out var stEl)) state = stEl.GetString() ?? "";
+
+                        var parts = new List<string> { village, county, state }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+                        if (parts.Count > 0)
+                        {
+                            employee.LastKnownAddress = string.Join(", ", parts);
+                        }
+                    }
+                }
+                catch { }
+            }
 
             bool shouldGeocode = false;
             if (request.Latitude.HasValue && request.Longitude.HasValue)
@@ -199,7 +260,7 @@ namespace NavbharatAgroAPI.Controllers
                                 if (!string.IsNullOrEmpty(newAddress))
                                 {
                                     employee.LastKnownAddress = newAddress;
-                                    _lastGeocodedLocations[employee.Id] = (request.Latitude.Value, request.Longitude.Value);
+                                    _lastGeocodedLocations[employee.Id] = (request.Latitude!.Value, request.Longitude!.Value);
                                 }
                             }
                         }
@@ -211,22 +272,41 @@ namespace NavbharatAgroAPI.Controllers
                 }
             }
 
-            if (request.Latitude.HasValue && request.Longitude.HasValue)
+            // Only save a coordinate breadcrumb if moving during trip, or at periodic 2-minute heartbeat
+            if (request.Latitude.HasValue && request.Longitude.HasValue && request.Latitude.Value != 0 && request.Longitude.Value != 0)
             {
-                var locationHistory = new LocationHistory
+                bool shouldSaveBreadcrumb = isMovementPoint;
+                if (!shouldSaveBreadcrumb)
                 {
-                    EmployeeId = request.EmployeeId,
-                    Latitude = request.Latitude.Value,
-                    Longitude = request.Longitude.Value,
-                    Timestamp = currentTimestamp
-                };
+                    var lastPing = await _context.LocationHistories
+                        .Where(lh => lh.EmployeeId == request.EmployeeId)
+                        .OrderByDescending(lh => lh.Timestamp)
+                        .Select(lh => lh.Timestamp)
+                        .FirstOrDefaultAsync();
 
-                _context.LocationHistories.Add(locationHistory);
+                    if (lastPing == default || (currentTimestamp - lastPing).TotalMinutes >= 2)
+                    {
+                        shouldSaveBreadcrumb = true;
+                    }
+                }
+
+                if (shouldSaveBreadcrumb)
+                {
+                    var locationHistory = new LocationHistory
+                    {
+                        EmployeeId = request.EmployeeId,
+                        Latitude = request.Latitude.Value,
+                        Longitude = request.Longitude.Value,
+                        Timestamp = currentTimestamp
+                    };
+
+                    _context.LocationHistories.Add(locationHistory);
+                }
             }
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation($"Location/Ping saved successfully for EmployeeId {request.EmployeeId}.");
+            _logger.LogInformation($"Location/Ping saved successfully for EmployeeId {request.EmployeeId}. Today Travelled: {employee.TodayTravelledDistance:F1}m");
 
             int stoppedDurationMinutes = employee.LastMovementTimestamp.HasValue ? (int)(currentTimestamp - employee.LastMovementTimestamp.Value).TotalMinutes : 0;
 
@@ -249,6 +329,7 @@ namespace NavbharatAgroAPI.Controllers
                 Latitude = request.Latitude ?? 0,
                 Longitude = request.Longitude ?? 0,
                 Timestamp = currentTimestamp,
+                TodayTravelledDistance = employee.TodayTravelledDistance,
                 Message = "Location saved successfully."
             };
 
@@ -291,8 +372,8 @@ namespace NavbharatAgroAPI.Controllers
                 {
                     Type = "FieldVisit",
                     Name = fv.CustomerName,
-                    Latitude = fv.Latitude.Value,
-                    Longitude = fv.Longitude.Value,
+                    Latitude = fv.Latitude.GetValueOrDefault(),
+                    Longitude = fv.Longitude.GetValueOrDefault(),
                     Timestamp = fv.VisitDate.ToDateTime(fv.VisitTime, DateTimeKind.Utc)
                 });
             }
@@ -303,8 +384,8 @@ namespace NavbharatAgroAPI.Controllers
                 {
                     Type = "OrderBooking",
                     Name = ob.CustomerName,
-                    Latitude = ob.Latitude.Value,
-                    Longitude = ob.Longitude.Value,
+                    Latitude = ob.Latitude.GetValueOrDefault(),
+                    Longitude = ob.Longitude.GetValueOrDefault(),
                     Timestamp = ob.BookingDate.ToDateTime(ob.BookingTime, DateTimeKind.Utc)
                 });
             }
@@ -396,7 +477,7 @@ namespace NavbharatAgroAPI.Controllers
                 GpsPings = gpsPings
             };
 
-            var apiKey = Environment.GetEnvironmentVariable("GOOGLE_MAPS_ROUTES_API_KEY");
+            var apiKey = Environment.GetEnvironmentVariable("GOOGLE_MAPS_ROUTES_API_KEY") ?? "AIzaSyC9-50lwsUipQ9txoB9OoRnJd8HeCNXzrI";
             if (string.IsNullOrEmpty(apiKey))
             {
                 return Ok(response);
@@ -447,6 +528,27 @@ namespace NavbharatAgroAPI.Controllers
             }
 
             return Ok(response);
+        }
+
+        private static (double Lat, double Lng, string Address) ResolveAreaCoordinates(string? assignedArea)
+        {
+            var area = assignedArea?.Trim().ToLowerInvariant() ?? "";
+            if (area.Contains("gadhinglaj"))
+                return (16.2227, 74.3519, "Gadhinglaj, Maharashtra");
+            if (area.Contains("nesari"))
+                return (16.0717, 74.3314, "Nesari, Maharashtra");
+            if (area.Contains("ajara") || area.Contains("ajra"))
+                return (16.1171, 74.2058, "Ajara, Maharashtra");
+            if (area.Contains("chandgad"))
+                return (15.9328, 74.3941, "Chandgad, Maharashtra");
+            if (area.Contains("kolhapur"))
+                return (16.7050, 74.2433, "Kolhapur, Maharashtra");
+            if (area.Contains("nagpur"))
+                return (21.1458, 79.0882, "Nagpur, Maharashtra");
+            if (area.Contains("ichalkaranji"))
+                return (16.6957, 74.4636, "Ichalkaranji, Maharashtra");
+
+            return (16.2227, 74.3519, !string.IsNullOrWhiteSpace(assignedArea) ? assignedArea + ", Maharashtra" : "Maharashtra, India");
         }
     }
 }

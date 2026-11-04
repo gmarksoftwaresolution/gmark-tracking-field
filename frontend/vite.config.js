@@ -9,6 +9,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    host: true, // Listen on all network addresses (0.0.0.0) so mobile devices on the same Wi-Fi can connect
     port: 3002,
     strictPort: true,
     proxy: {

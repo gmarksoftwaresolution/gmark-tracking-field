@@ -189,7 +189,7 @@ namespace NavbharatAgroAPI.Controllers
 
                 visit.EmployeeId = requestDto.EmployeeId;
                 visit.AssignedBy = requestDto.AssignedBy;
-                visit.Route = requestDto.Route;
+                visit.Route = string.IsNullOrWhiteSpace(requestDto.Route) ? "General Route" : requestDto.Route;
                 visit.CustomerName = requestDto.CustomerName;
                 visit.Village = requestDto.Village;
                 visit.MobileNumber = requestDto.MobileNumber;

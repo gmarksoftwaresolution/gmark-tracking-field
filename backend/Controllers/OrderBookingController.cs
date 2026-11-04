@@ -411,7 +411,7 @@ namespace NavbharatAgroAPI.Controllers
                 // Update standard properties
                 orderBooking.EmployeeId = requestDto.EmployeeId;
                 orderBooking.AssignedBy = requestDto.AssignedBy;
-                orderBooking.Route = requestDto.Route;
+                orderBooking.Route = string.IsNullOrWhiteSpace(requestDto.Route) ? "General Route" : requestDto.Route;
                 orderBooking.CustomerName = requestDto.CustomerName;
                 orderBooking.Village = requestDto.Village;
                 orderBooking.MobileNumber = requestDto.MobileNumber;

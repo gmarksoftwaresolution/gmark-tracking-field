@@ -92,8 +92,8 @@ namespace NavbharatAgroAPI.Controllers
                 var pingsByEmployee = todayPings.GroupBy(p => p.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
 
                 return Ok(uniqueEmployees.Select(e => {
-                    bool isToday = e.TripStartTime.HasValue && e.TripStartTime.Value.ToLocalTime().Date == DateTime.Now.Date;
-                    bool hasPingedToday = e.LastLocationTimestamp.HasValue && TimeZoneInfo.ConvertTimeFromUtc(e.LastLocationTimestamp.Value, istZone).Date == todayIst;
+                    bool isToday = e.TripStartTime.HasValue && TimeZoneInfo.ConvertTimeFromUtc(e.TripStartTime.Value, istZone).Date == todayIst;
+                    bool hasPingedToday = (e.LastLocationTimestamp.HasValue && TimeZoneInfo.ConvertTimeFromUtc(e.LastLocationTimestamp.Value, istZone).Date == todayIst) || isToday;
 
                     int stoppedDurationMinutes = e.LastMovementTimestamp.HasValue && e.LastLocationTimestamp.HasValue 
                         ? (int)(e.LastLocationTimestamp.Value - e.LastMovementTimestamp.Value).TotalMinutes 
@@ -158,12 +158,12 @@ namespace NavbharatAgroAPI.Controllers
                         LastLongitude = e.LastLongitude,
                         LastLocationTimestamp = e.LastLocationTimestamp,
                         LastKnownAddress = e.LastKnownAddress,
-                        TodayTravelledDistance = hasPingedToday ? e.TodayTravelledDistance : 0,
+                        TodayTravelledDistance = (isToday || hasPingedToday) ? e.TodayTravelledDistance : 0,
                         StoppedDurationMinutes = stoppedDurationMinutes,
                         LastMovementTimestamp = e.LastMovementTimestamp,
                         HistoricalStops = stops,
                         DeviceChangeStatus = e.DeviceChangeStatus,
-                        BatteryLevel = e.BatteryLevel
+                        BatteryLevel = hasPingedToday ? e.BatteryLevel : null
                     };
                 }));
             }
@@ -422,8 +422,35 @@ namespace NavbharatAgroAPI.Controllers
                     return NotFound(new { message = $"Employee with Id {id} not found." });
                 }
 
+                if (!await IsDeviceApprovedAsync(id, employee))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message = "Attendance Check-In is only permitted from your currently approved device." });
+                }
+
+                var istZone = GetIstTimeZone();
+                var currentTimestamp = DateTime.UtcNow;
+                var currentIstDate = TimeZoneInfo.ConvertTimeFromUtc(currentTimestamp, istZone).Date;
+
+                // Reset distance only if last activity was on a previous calendar day in IST
+                if (employee.LastLocationTimestamp.HasValue)
+                {
+                    var lastIstDate = TimeZoneInfo.ConvertTimeFromUtc(employee.LastLocationTimestamp.Value, istZone).Date;
+                    if (currentIstDate > lastIstDate)
+                    {
+                        employee.TodayTravelledDistance = 0;
+                    }
+                }
+                else if (employee.TripStartTime.HasValue)
+                {
+                    var lastTripIstDate = TimeZoneInfo.ConvertTimeFromUtc(employee.TripStartTime.Value, istZone).Date;
+                    if (currentIstDate > lastTripIstDate)
+                    {
+                        employee.TodayTravelledDistance = 0;
+                    }
+                }
+
                 employee.TripStatus = "Started";
-                employee.TripStartTime = DateTime.UtcNow;
+                employee.TripStartTime = currentTimestamp;
                 employee.TripEndTime = null;
                 if (!string.IsNullOrWhiteSpace(request?.RouteCode))
                 {
@@ -443,6 +470,7 @@ namespace NavbharatAgroAPI.Controllers
                     TripStartTime = employee.TripStartTime,
                     TripEndTime = employee.TripEndTime,
                     SelectedRouteCode = employee.SelectedRouteCode,
+                    TodayTravelledDistance = employee.TodayTravelledDistance,
                     CreatedAt = employee.CreatedAt,
                     Message = "Trip Started Successfully"
                 });
@@ -468,6 +496,11 @@ namespace NavbharatAgroAPI.Controllers
                     return NotFound(new { message = $"Employee with Id {id} not found." });
                 }
 
+                if (!await IsDeviceApprovedAsync(id, employee))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new { success = false, message = "Attendance Check-Out is only permitted from your currently approved device." });
+                }
+
                 employee.TripStatus = "Stopped";
                 employee.TripEndTime = DateTime.UtcNow;
 
@@ -484,6 +517,7 @@ namespace NavbharatAgroAPI.Controllers
                     TripStartTime = employee.TripStartTime,
                     TripEndTime = employee.TripEndTime,
                     SelectedRouteCode = employee.SelectedRouteCode,
+                    TodayTravelledDistance = employee.TodayTravelledDistance,
                     CreatedAt = employee.CreatedAt,
                     Message = "Trip Stopped Successfully"
                 });
@@ -618,6 +652,32 @@ namespace NavbharatAgroAPI.Controllers
                 return Ok(new { Message = "Device change rejected successfully." });
             }
             return BadRequest(new { Message = "No pending device change request found." });
+        }
+
+        private async Task<bool> IsDeviceApprovedAsync(int employeeId, Employee employee)
+        {
+            string? deviceId = Request.Headers.TryGetValue("X-Device-Id", out var devVal) ? devVal.ToString().Trim() : null;
+            if (string.IsNullOrEmpty(deviceId) && User.Identity?.IsAuthenticated == true)
+            {
+                deviceId = User.FindFirst("deviceId")?.Value;
+            }
+
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                return true;
+            }
+
+            var hasApproved = await _context.Devices
+                .AnyAsync(d => d.EmployeeId == employeeId && d.DeviceId == deviceId && d.Status == DeviceStatus.Approved);
+
+            if (hasApproved) return true;
+
+            if (!string.IsNullOrEmpty(employee.DeviceId) && employee.DeviceId == deviceId)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private bool IsAdminRequest()

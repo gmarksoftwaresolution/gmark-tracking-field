@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginEmployee } from '../services/api';
 import { resolveTodayRoute } from '../utils/routeHelper';
+import { getDeviceId, getDeviceName, getCurrentCoordinates } from '../utils/deviceHelper';
+import { useDeviceApproval } from '../hooks/useDeviceApproval';
+import DeviceApprovalModal from '../components/DeviceApprovalModal';
 
 export default function Welcome() {
   const navigate = useNavigate();
@@ -13,11 +16,58 @@ export default function Welcome() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Clear any remembered employee storage on mount
+  // Device Approval Modal States
+  const [pendingEmployee, setPendingEmployee] = useState(null);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+
+  // Persistent Login Check: Stay logged in until explicitly logged out!
   useEffect(() => {
-    localStorage.removeItem('rememberedEmployeeName');
-    localStorage.removeItem('rememberedEmployeeId');
-  }, []);
+    const activeEmpId = localStorage.getItem('employeeId');
+    const activeToken = localStorage.getItem('employeeToken');
+    if (activeEmpId && activeToken) {
+      navigate('/employee-dashboard', { replace: true });
+    }
+  }, [navigate]);
+
+  const onDeviceApproved = (session) => {
+    if (!session) return;
+    const empIdStr = session.employeeId.toString();
+    const empName = session.employeeName;
+
+    localStorage.setItem('employeeId', empIdStr);
+    localStorage.setItem('employeeName', empName);
+    localStorage.setItem('rememberedEmployeeId', empIdStr);
+    localStorage.setItem('rememberedEmployeeName', empName);
+
+    if (session.token) {
+      localStorage.setItem('employeeToken', session.token);
+    }
+    if (session.refreshToken) {
+      localStorage.setItem('refreshToken', session.refreshToken);
+    }
+
+    const assignedRoute = resolveTodayRoute(empName, empIdStr);
+    localStorage.setItem('employeeRoute', assignedRoute);
+
+    setIsApprovalModalOpen(false);
+    window.alert("Device Approved! Please allow location permission 'Allow all the time' in your device settings.");
+    navigate('/employee-dashboard', { replace: true });
+  };
+
+  const {
+    status: deviceStatus,
+    setStatus: setDeviceStatus,
+    reason: deviceReason,
+    setReason: setDeviceReason,
+    reasonSaved,
+    isSubmittingReason,
+    submitReason,
+    errorMessage: deviceErrorMessage
+  } = useDeviceApproval({
+    employeeId: pendingEmployee?.id,
+    deviceId: getDeviceId(),
+    onApproved: onDeviceApproved
+  });
 
   const handleLogoClick = () => {
     clickCount.current += 1;
@@ -30,6 +80,7 @@ export default function Welcome() {
       clickCount.current = 0;
       const pwd = window.prompt('Admin Access: Enter Password');
       if (pwd === 'admin123') {
+        localStorage.setItem('isAdminLoggedIn', 'true');
         navigate('/admin-dashboard');
       } else if (pwd !== null) {
         alert('Incorrect password. Access denied.');
@@ -54,7 +105,62 @@ export default function Welcome() {
     setIsSubmitting(true);
 
     try {
-      const response = await loginEmployee({ employeeId: 0, password: cleanPassword });
+      const deviceId = getDeviceId();
+      const deviceName = getDeviceName();
+      const coords = await getCurrentCoordinates();
+
+      const payload = {
+        employeeId: 0,
+        password: cleanPassword,
+        deviceId,
+        deviceName,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+        locationName: coords?.locationName
+      };
+
+      const response = await loginEmployee(payload);
+
+      // Handle NOTE_REQUIRED or REVOKED (Device needs approval note)
+      if (response.status === 'NOTE_REQUIRED' || response.status === 'REVOKED') {
+        setPendingEmployee({
+          id: response.employeeId,
+          name: response.employeeName
+        });
+        setDeviceStatus('NOTE_REQUIRED');
+        if (response.reason) {
+          setDeviceReason(response.reason);
+        }
+        setIsApprovalModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Handle PENDING Device Approval
+      if (response.status === 'PENDING' || response.isDeviceChangePending) {
+        setPendingEmployee({
+          id: response.employeeId,
+          name: response.employeeName
+        });
+        setDeviceStatus('PENDING');
+        if (response.reason) {
+          setDeviceReason(response.reason);
+        }
+        setIsApprovalModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (response.status === 'REJECTED') {
+        setPendingEmployee({
+          id: response.employeeId,
+          name: response.employeeName
+        });
+        setDeviceStatus('REJECTED');
+        setIsApprovalModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
 
       // Save active session info on success
       const empIdStr = response.employeeId.toString();
@@ -62,17 +168,36 @@ export default function Welcome() {
 
       localStorage.setItem('employeeId', empIdStr);
       localStorage.setItem('employeeName', empName);
+      localStorage.setItem('rememberedEmployeeId', empIdStr);
+      localStorage.setItem('rememberedEmployeeName', empName);
+
       if (response.token) {
         localStorage.setItem('employeeToken', response.token);
+      }
+      if (response.refreshToken) {
+        localStorage.setItem('refreshToken', response.refreshToken);
       }
 
       const assignedRoute = resolveTodayRoute(empName, empIdStr);
       localStorage.setItem('employeeRoute', assignedRoute);
 
-      navigate('/employee-dashboard');
+      window.alert("Please allow location permission 'Allow all the time' in your device settings so that background tracking works properly.");
+
+      navigate('/employee-dashboard', { replace: true });
     } catch (err) {
       console.error("Login Error:", err);
-      setAuthError(err.response?.data?.message || 'Invalid Password');
+      const errData = err.response?.data;
+      if (errData && (errData.status === 'REVOKED' || errData.status === 'NOTE_REQUIRED' || errData.status === 'PENDING' || errData.isDeviceRevoked)) {
+        setPendingEmployee({
+          id: errData.employeeId || 0,
+          name: errData.employeeName || ''
+        });
+        setDeviceStatus(errData.status === 'PENDING' ? 'PENDING' : 'NOTE_REQUIRED');
+        if (errData.reason) setDeviceReason(errData.reason);
+        setIsApprovalModalOpen(true);
+      } else {
+        setAuthError(errData?.message || 'Invalid Password');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -80,6 +205,25 @@ export default function Welcome() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8">
+      {/* Device Approval Modal */}
+      <DeviceApprovalModal
+        isOpen={isApprovalModalOpen}
+        deviceName={getDeviceName()}
+        deviceId={getDeviceId()}
+        employeeName={pendingEmployee?.name}
+        reason={deviceReason}
+        onReasonChange={setDeviceReason}
+        onSubmitReason={submitReason}
+        isSubmittingReason={isSubmittingReason}
+        reasonSaved={reasonSaved}
+        status={deviceStatus}
+        errorMessage={deviceErrorMessage}
+        onCancel={() => {
+          setIsApprovalModalOpen(false);
+          setDeviceStatus('IDLE');
+        }}
+      />
+
       <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 max-w-lg w-full text-center border border-slate-100">
 
         {/* Company Logo with Hidden Admin Trigger */}

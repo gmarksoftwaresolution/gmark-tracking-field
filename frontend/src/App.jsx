@@ -31,6 +31,7 @@ function App() {
         <Route path="/employee-dashboard" element={<EmployeeDashboard />} />
         <Route path="/pending-orders" element={<PendingOrders />} />
         <Route path="/delivered-orders" element={<DeliveredOrders />} />
+        <Route path="/admin" element={<Navigate to="/admin-dashboard" replace />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/admin/employee-status" element={<AdminDashboard initialTab="employee-status" />} />
         <Route path="/admin-dashboard/employee/:id" element={<EmployeeDetail />} />

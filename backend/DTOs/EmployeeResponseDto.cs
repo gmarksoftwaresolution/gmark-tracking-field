@@ -21,6 +21,7 @@ namespace NavbharatAgroAPI.DTOs
         public double? LastLatitude { get; set; }
         public double? LastLongitude { get; set; }
         public DateTime? LastLocationTimestamp { get; set; }
+        public DateTime? LastSeenTimestamp { get; set; }
         public string? LastKnownAddress { get; set; }
         public double TodayTravelledDistance { get; set; }
         public int StoppedDurationMinutes { get; set; }

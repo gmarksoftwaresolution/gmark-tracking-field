@@ -1,28 +1,43 @@
 const { Client } = require('pg');
 
-const client = new Client({
-  user: 'postgres',
-  host: '127.0.0.1',
-  database: 'NavbharatAgroDB',
-  password: 'postgres',
-  port: 5432,
-});
+async function runOnPort(port) {
+  const client = new Client({
+    user: 'postgres',
+    host: '127.0.0.1',
+    database: 'NavbharatAgroDB',
+    password: 'postgres',
+    port: port,
+  });
 
-async function resetKm() {
   try {
     await client.connect();
-    console.log("Connected to database...");
+    console.log(`Connected to database on port ${port}...`);
     
-    // Update the TodayTravelledDistance for all employees to 0
-    const res = await client.query('UPDATE "Employees" SET "TodayTravelledDistance" = 0');
-    console.log(`Successfully reset TodayTravelledDistance to 0 for ${res.rowCount} employees.`);
+    // 1. Reset TodayTravelledDistance to 0 for all employees whose trip is not actively Started
+    const res1 = await client.query('UPDATE "Employees" SET "TodayTravelledDistance" = 0 WHERE "TripStatus" != \'Started\' OR "TripStartTime" IS NULL');
+    console.log(`Reset TodayTravelledDistance for ${res1.rowCount} employees.`);
     
-  } catch (err) {
-    console.error("Error resetting distance:", err);
-  } finally {
+    // 2. Clear stale/test coordinates so Nesari doesn't show
+    const res2 = await client.query('UPDATE "Employees" SET "LastLatitude" = NULL, "LastLongitude" = NULL, "LastKnownAddress" = NULL, "LastLocationTimestamp" = NULL WHERE "TripStatus" != \'Started\'');
+    console.log(`Cleared stale coordinates for ${res2.rowCount} employees.`);
+    
+    // 3. Clear old location histories from test runs
+    const res3 = await client.query('DELETE FROM "LocationHistories"');
+    console.log(`Cleared ${res3.rowCount} old LocationHistories.`);
+
     await client.end();
-    console.log("Database connection closed.");
+    return true;
+  } catch (err) {
+    console.log(`Port ${port} failed: ${err.message}`);
+    return false;
   }
 }
 
-resetKm();
+async function main() {
+  const ok4321 = await runOnPort(4321);
+  if (!ok4321) {
+    await runOnPort(5432);
+  }
+}
+
+main();

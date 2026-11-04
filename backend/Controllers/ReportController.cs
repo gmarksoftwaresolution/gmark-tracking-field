@@ -304,7 +304,7 @@ namespace NavbharatAgroAPI.Controllers
                         {
                             var dayPoints = dayGroup.OrderBy(lh => lh.Timestamp).ToList();
                             double dailyKmMeters = 0;
-                            LocationHistory prev = null;
+                            LocationHistory? prev = null;
 
                             foreach (var current in dayPoints)
                             {

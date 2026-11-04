@@ -9,6 +9,7 @@ namespace NavbharatAgroAPI.DTOs
         public double Latitude { get; set; }
         public double Longitude { get; set; }
         public DateTime Timestamp { get; set; }
+        public double TodayTravelledDistance { get; set; }
         public string Message { get; set; } = string.Empty;
     }
 }

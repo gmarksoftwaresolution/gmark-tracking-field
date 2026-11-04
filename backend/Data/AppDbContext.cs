@@ -17,6 +17,7 @@ namespace NavbharatAgroAPI.Data
         public DbSet<RouteMaster> RouteMasters { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<LocationHistory> LocationHistories { get; set; }
+        public DbSet<Device> Devices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -105,6 +106,21 @@ namespace NavbharatAgroAPI.Data
 
             modelBuilder.Entity<LocationHistory>()
                 .HasIndex(lh => lh.Timestamp);
+
+            // 8. Device Relationships and Indexes
+            modelBuilder.Entity<Device>(entity =>
+            {
+                entity.ToTable("Devices");
+                entity.HasKey(d => d.Id);
+
+                entity.HasIndex(d => new { d.EmployeeId, d.DeviceId }).IsUnique();
+                entity.HasIndex(d => new { d.EmployeeId, d.Status });
+
+                entity.HasOne(d => d.Employee)
+                      .WithMany(e => e.Devices)
+                      .HasForeignKey(d => d.EmployeeId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

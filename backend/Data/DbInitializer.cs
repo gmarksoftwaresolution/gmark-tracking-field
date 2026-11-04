@@ -92,7 +92,7 @@ var incorrectPrutivraj = context.Employees
                     Name = "Pruthviraj",
                     EmployeeCode = "P001",
                     MobileNumber = "9876543211",
-                    AssignedArea = "Gadhinglaj",
+                    AssignedArea = "Nesari",
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@p001"),
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
@@ -102,6 +102,8 @@ var incorrectPrutivraj = context.Employees
             {
                 pruthviraj.EmployeeCode = "P001";
                 pruthviraj.PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@p001");
+                pruthviraj.AssignedArea = "Nesari";
+                if (pruthviraj.BatteryLevel == 69) pruthviraj.BatteryLevel = null;
             }
 
             // Ensure Rohit exists and update PasswordHash

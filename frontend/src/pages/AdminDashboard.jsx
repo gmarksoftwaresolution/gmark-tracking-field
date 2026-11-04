@@ -10,9 +10,13 @@ import {
   getCancelledOrders,
   deleteOrderBooking,
   getHistoricalRoute,
-  getMonthlyTravelReport
+  getMonthlyTravelReport,
+  approveDeviceChange,
+  rejectDeviceChange
 } from '../services/api';
 import LiveTrackingMap from '../components/LiveTrackingMap';
+import DeviceManagement from '../components/DeviceManagement';
+import { getPendingDevices } from '../services/api';
 
 const routeCodeMap = {
   // Kunal Routes
@@ -87,6 +91,14 @@ const formatRouteForDisplay = (rawRoute, empNameClean = '', empId = '') => {
   return (rawRoute && rawRoute !== '--') ? rawRoute : '--';
 };
 
+const isTodayDate = (dateStr) => {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+  if (isNaN(d.getTime())) return false;
+  const todayStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  return d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }).split(',')[0] === todayStr.split(',')[0];
+};
+
 const validatePasswordRules = (pwd, confirmPwd) => {
   if (!pwd) return "Password is required.";
   if (pwd !== confirmPwd) return "Password and Confirm Password must match.";
@@ -102,6 +114,19 @@ export default function AdminDashboard({ initialTab }) {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState(initialTab || 'overview');
+  const [pendingDeviceCount, setPendingDeviceCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const data = await getPendingDevices();
+        setPendingDeviceCount(data.length);
+      } catch (err) {}
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Tracking states for Employee Status Tab
   const [selectedTrackingEmployee, setSelectedTrackingEmployee] = useState(null);
@@ -156,6 +181,50 @@ export default function AdminDashboard({ initialTab }) {
   });
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
+  const [deviceActionModal, setDeviceActionModal] = useState(null);
+  const [actionToast, setActionToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setActionToast({ message, type });
+    setTimeout(() => setActionToast(null), 4000);
+  };
+
+  const handleApproveDevice = (id) => {
+    const emp = employees.find(e => e.id === id);
+    setDeviceActionModal({
+      type: 'approve',
+      id,
+      name: emp?.name || 'this employee'
+    });
+  };
+
+  const handleRejectDevice = (id) => {
+    const emp = employees.find(e => e.id === id);
+    setDeviceActionModal({
+      type: 'reject',
+      id,
+      name: emp?.name || 'this employee'
+    });
+  };
+
+  const confirmDeviceAction = async () => {
+    if (!deviceActionModal) return;
+    const { type, id, name } = deviceActionModal;
+    setDeviceActionModal(null);
+    try {
+      if (type === 'approve') {
+        await approveDeviceChange(id);
+        showToast(`Device approved for ${name}. Single-device binding active.`, 'success');
+      } else {
+        await rejectDeviceChange(id);
+        showToast(`Device change request rejected for ${name}.`, 'info');
+      }
+      const data = await getEmployees();
+      setEmployees(dedupeEmployees(data));
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || `Failed to ${type} device.`, 'error');
+    }
+  };
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
@@ -316,7 +385,7 @@ export default function AdminDashboard({ initialTab }) {
   // Fetch report data on tab change and periodically every 5 seconds for instant admin updates
   useEffect(() => {
     const fetchTabContent = async () => {
-      if (activeTab === 'overview') {
+      if (activeTab === 'overview' || activeTab === 'employee-status') {
         try {
           const data = await getEmployees();
           setEmployees(dedupeEmployees(data));
@@ -379,7 +448,7 @@ export default function AdminDashboard({ initialTab }) {
             <p className="text-blue-100 font-medium mt-2">Monitor Employee Performance</p>
           </div>
           <button
-            onClick={() => navigate('/welcome')}
+            onClick={() => { localStorage.removeItem('isAdminLoggedIn'); navigate('/welcome'); }}
             className="flex items-center gap-2 text-sm bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-full transition-colors"
           >
             Back to Welcome
@@ -427,81 +496,22 @@ export default function AdminDashboard({ initialTab }) {
           >
             Employee Status
           </button>
+          <button
+            onClick={() => setActiveTab('devices')}
+            className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${activeTab === 'devices' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+          >
+            <span>📱 Devices</span>
+            {pendingDeviceCount > 0 && (
+              <span className="bg-amber-500 text-white text-[11px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-sm">
+                {pendingDeviceCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {activeTab === 'overview' && (
           <div>
-            {/* Employee Alerts Section */}
-            {(() => {
-              const allAlerts = employees.flatMap(emp => {
-                if (emp.historicalStops && emp.historicalStops.length > 0) {
-                  return emp.historicalStops.map((stop, index) => ({
-                    ...emp,
-                    alertId: `${emp.id}-${index}`,
-                    stoppedDurationMinutes: stop.durationMinutes,
-                    lastKnownAddress: (index === emp.historicalStops.length - 1 && emp.lastKnownAddress) ? emp.lastKnownAddress : `Lat: ${stop.latitude.toFixed(4)}, Lng: ${stop.longitude.toFixed(4)}`,
-                    lastMovementTimestamp: stop.startTime
-                  }));
-                } else {
-                  if (emp.stoppedDurationMinutes >= 30 && emp.lastLocationTimestamp && new Date(emp.lastLocationTimestamp + (emp.lastLocationTimestamp.endsWith('Z') ? '' : 'Z')).toDateString() === new Date().toDateString()) {
-                    return [{
-                      ...emp,
-                      alertId: `${emp.id}-legacy`
-                    }];
-                  }
-                  return [];
-                }
-              });
-
-              if (allAlerts.length === 0) return null;
-
-              return (
-                <div className="mb-8">
-                  <h2 className="text-xl font-bold text-red-600 mb-4 flex items-center gap-2">
-                    <span className="animate-pulse">🔴</span> Active Stopped Alerts
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {allAlerts.map(alert => (
-                        <div key={`alert-${alert.alertId}`} className="bg-red-50 border-l-4 border-red-500 p-5 rounded-r-lg shadow-md hover:shadow-lg transition-shadow">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-bold text-red-800 text-lg">Employee Stopped</h3>
-                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold shadow-sm">
-                              {alert.stoppedDurationMinutes} mins
-                            </span>
-                          </div>
-                          <p className="text-red-900 mb-1">
-                            <span className="font-semibold">{alert.name}</span> has stopped for {alert.stoppedDurationMinutes} minutes.
-                          </p>
-                          <p className="text-red-700 text-sm mb-1 truncate" title={alert.lastKnownAddress}>
-                            <strong>Location:</strong> {alert.lastKnownAddress || 'Unknown location'}
-                          </p>
-                          <p className="text-red-700 text-sm mb-4">
-                            <strong>Stopped since:</strong> {new Date(alert.lastMovementTimestamp + (alert.lastMovementTimestamp.endsWith('Z') ? '' : 'Z')).toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                          <button
-                            onClick={() => {
-                              setSelectedTrackingEmployee(alert);
-                              setActiveTab('employee-status');
-                              const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-                              const dateObj = new Date(today);
-                              const yyyy = dateObj.getFullYear();
-                              const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-                              const dd = String(dateObj.getDate()).padStart(2, '0');
-                              setTrackingDate(`${yyyy}-${mm}-${dd}`);
-                              setTimeout(() => {
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }, 100);
-                            }}
-                            className="bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition-colors text-sm font-medium w-full text-center"
-                          >
-                            View on Map
-                          </button>
-                        </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Employee Alerts Section removed as requested */}
 
             {/* Employees Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8 mb-8">
@@ -862,7 +872,8 @@ export default function AdminDashboard({ initialTab }) {
             <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">
-                  Employee Status
+      
+
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">Real-time status, route details, and trip tracking for all field staff</p>
               </div>
@@ -881,22 +892,13 @@ export default function AdminDashboard({ initialTab }) {
                     <th className="py-3.5 px-4">Trip Stop Time</th>
                     <th className="py-3.5 px-4">Last Ping</th>
                     <th className="py-3.5 px-4">Today's KM</th>
-                    <th className="py-3.5 px-4 text-center">Tracking</th>
+                    <th className="py-3.5 px-4">Battery</th>
+                    <th className="py-3.5 px-4 text-center">Tracking & Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {employees.map(emp => {
                     const empNameClean = emp.name.replace(/\s+Employee$/i, '').trim();
-                    const isTodayDate = (dateStr) => {
-                      if (!dateStr) return false;
-                      const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
-                      if (isNaN(d.getTime())) return false;
-                      const todayStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-                      const today = new Date(todayStr);
-                      // Compare dates in IST
-                      return d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }).split(',')[0] === todayStr.split(',')[0];
-                    };
-
                     const tripIsToday = isTodayDate(emp.tripStartTime);
 
                     const formattedStartTime = (tripIsToday && emp.tripStartTime)
@@ -910,13 +912,46 @@ export default function AdminDashboard({ initialTab }) {
                     // Resolve route for display (e.g. Rohit's manual route or predefined Start -> End route)
                     const routeDisplay = formatRouteForDisplay(emp.selectedRouteCode, empNameClean, emp.id);
 
+                    const lastLocTimeStr = emp.lastLocationTimestamp || emp.lastLocationTime;
+                    const lastLocTime = lastLocTimeStr ? new Date(lastLocTimeStr.endsWith('Z') ? lastLocTimeStr : lastLocTimeStr + 'Z') : null;
+                    const isEmployeeOnline = lastLocTime && !isNaN(lastLocTime.getTime())
+                      ? ((new Date().getTime() - lastLocTime.getTime()) >= -60000 && (new Date().getTime() - lastLocTime.getTime()) < 5 * 60 * 1000)
+                      : false;
+
                     return (
                       <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs shadow-xs">
-                            {emp.name.charAt(0)}
+                        <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-3">
+                          <div className="relative">
+                            <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs shadow-xs">
+                              {emp.name.charAt(0)}
+                            </div>
+                            {isEmployeeOnline ? (
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-xs" title="Online (Active now)"></div>
+                            ) : (
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-slate-300 border-2 border-white rounded-full shadow-xs" title="Offline"></div>
+                            )}
                           </div>
-                          <span>{empNameClean}</span>
+                          <div className="flex flex-col">
+                            <span className="leading-tight">{empNameClean}</span>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              {isEmployeeOnline ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shadow-xs">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  ONLINE
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                                  OFFLINE
+                                </span>
+                              )}
+                              {emp.tripStatus === 'Started' ? (
+                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                  🚗 On Trip
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
                         </td>
 
                         <td className="py-3.5 px-4 font-semibold text-blue-600">
@@ -932,39 +967,76 @@ export default function AdminDashboard({ initialTab }) {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          {emp.lastLocationTime ? (
-                            <div className="flex flex-col">
-                              <span className="font-semibold text-slate-800 text-xs">
-                                {new Date(emp.lastLocationTime + (emp.lastLocationTime.endsWith('Z') ? '' : 'Z')).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}
-                              </span>
-                              {emp.lastKnownAddress && (
-                                <span className="text-[10px] text-slate-500 truncate max-w-[120px]" title={emp.lastKnownAddress}>
-                                  {emp.lastKnownAddress}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">--</span>
-                          )}
+                          {(() => {
+                            const pingTimeStr = emp.lastLocationTimestamp || emp.lastLocationTime;
+                            const hasPingToday = isTodayDate(pingTimeStr);
+                            const locationAddress = emp.lastKnownAddress;
+                            if (hasPingToday && pingTimeStr) {
+                              return (
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-slate-800 text-xs">
+                                    {new Date(pingTimeStr + (pingTimeStr.endsWith('Z') ? '' : 'Z')).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}
+                                  </span>
+                                  {locationAddress && (
+                                    <span className="text-[11px] font-medium text-slate-600 flex items-center gap-1 mt-0.5 truncate max-w-[150px]" title={locationAddress}>
+                                      <span className="text-rose-500 text-xs">📍</span>
+                                      <span>{locationAddress}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return <span className="text-slate-400">--</span>;
+                          })()}
                         </td>
 
                         <td className="py-3.5 px-4 font-bold text-slate-800">
-                          {emp.todayTravelledDistance > 0 ? `${(emp.todayTravelledDistance / 1000).toFixed(2)} km` : '--'}
+                          {emp.tripStatus === 'Started' || (tripIsToday && emp.todayTravelledDistance > 0)
+                            ? (emp.todayTravelledDistance > 0 ? `${(emp.todayTravelledDistance / 1000).toFixed(2)} km` : '0.00 km')
+                            : '--'}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-bold">
+                          {(() => {
+                            const pingTimeStr = emp.lastLocationTimestamp || emp.lastLocationTime;
+                            const hasPingToday = isTodayDate(pingTimeStr);
+                            const battery = emp.batteryLevel;
+                            if (hasPingToday && battery != null) {
+                              return (
+                                <span className={`px-2 py-1 rounded text-xs font-bold shadow-xs ${battery <= 20 ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                                  🔋 {battery}%
+                                </span>
+                              );
+                            }
+                            return <span className="text-slate-400">--</span>;
+                          })()}
                         </td>
 
                         <td className="py-3.5 px-4 text-center">
-                          <button
-                            onClick={() => {
-                              setSelectedTrackingEmployee(emp);
-                              setHistoricalRoute(null);
-                              const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-                              const dateObj = new Date(today);
-                              setTrackingDate(`${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`);
-                            }}
-                            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"
-                          >
-                            Track
-                          </button>
+                          <div className="flex justify-center gap-2">
+                            {emp.deviceChangeStatus === 'Pending' && (
+                              <div className="flex gap-1 flex-col sm:flex-row">
+                                <button onClick={() => handleApproveDevice(emp.id)} className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-2 py-1.5 rounded-lg font-bold text-xs transition-colors whitespace-nowrap">
+                                  ✓ Approve Device
+                                </button>
+                                <button onClick={() => handleRejectDevice(emp.id)} className="bg-red-100 text-red-700 hover:bg-red-200 px-2 py-1.5 rounded-lg font-bold text-xs transition-colors whitespace-nowrap">
+                                  ✗ Reject Device
+                                </button>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => {
+                                setSelectedTrackingEmployee(emp);
+                                setHistoricalRoute(null);
+                                const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+                                const dateObj = new Date(today);
+                                setTrackingDate(`${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`);
+                              }}
+                              className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"
+                            >
+                              Track
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -973,13 +1045,29 @@ export default function AdminDashboard({ initialTab }) {
               </table>
             </div>
 
-            {selectedTrackingEmployee && (
+            {selectedTrackingEmployee && (() => {
+              const currentTrackingEmployee = employees.find(emp => emp.id === selectedTrackingEmployee.id) || selectedTrackingEmployee;
+              const lastLocTimeStr = currentTrackingEmployee.lastLocationTimestamp || currentTrackingEmployee.lastLocationTime;
+              const lastLocTime = lastLocTimeStr ? new Date(lastLocTimeStr.endsWith('Z') ? lastLocTimeStr : lastLocTimeStr + 'Z') : null;
+              
+              const todayStr = (() => {
+                const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+                const dateObj = new Date(today);
+                return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+              })();
+              const isTrackingToday = trackingDate === todayStr;
+              
+              const isEmployeeOnline = isTrackingToday && lastLocTime && !isNaN(lastLocTime.getTime())
+                ? ((new Date().getTime() - lastLocTime.getTime()) >= -60000 && (new Date().getTime() - lastLocTime.getTime()) < 5 * 60 * 1000)
+                : false;
+
+              return (
                 <div className="flex-1 flex flex-col relative border-t border-slate-200 mt-6 pt-6">
                   {/* Top Bar: Employee Dropdown & Date */}
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 px-2">
                     <div className="flex items-center gap-4 w-full sm:w-auto">
                       <select 
-                        value={selectedTrackingEmployee.id}
+                        value={currentTrackingEmployee.id}
                         onChange={(e) => {
                           const empId = parseInt(e.target.value, 10);
                           const emp = employees.find(emp => emp.id === empId);
@@ -999,8 +1087,19 @@ export default function AdminDashboard({ initialTab }) {
                         value={trackingDate}
                         onChange={handleTrackingDateChange}
                         className="text-sm font-bold border-slate-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 px-3 bg-white"
-                        max={new Date().toISOString().split('T')[0]} 
+                        max={new Date().toISOString().split('T')[0]}
                       />
+                      {isEmployeeOnline ? (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full shadow-xs">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                          ONLINE
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full shadow-xs">
+                          <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                          OFFLINE
+                        </span>
+                      )}
                     </div>
                     <button 
                       onClick={() => setSelectedTrackingEmployee(null)}
@@ -1046,7 +1145,33 @@ export default function AdminDashboard({ initialTab }) {
                     <div className="w-full md:w-1/3 max-w-sm bg-slate-50/50 border-r border-slate-100 overflow-y-auto p-4 custom-scrollbar">
                       <h4 className="text-sm font-bold text-slate-800 mb-4 px-2">Journey Timeline</h4>
                       {(!historicalRoute?.origin && (!historicalRoute?.checkpoints || historicalRoute.checkpoints.length === 0)) && (
-                        <div className="text-sm text-slate-500 px-2">No tracking data available for {selectedTrackingEmployee.name} on this date.</div>
+                        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">Live Status</span>
+                            {isEmployeeOnline ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                ONLINE NOW
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">OFFLINE</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-xs text-slate-500 font-medium block">Current Location:</span>
+                            <span className="text-sm font-bold text-slate-900 flex items-center gap-1 mt-0.5">
+                              <span className="text-rose-500">📍</span>
+                              <span>{currentTrackingEmployee.lastKnownAddress || (currentTrackingEmployee.assignedArea ? `${currentTrackingEmployee.assignedArea}, Maharashtra` : 'Maharashtra, India')}</span>
+                            </span>
+                          </div>
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span className="text-slate-500 font-medium">Battery:</span>
+                            <span className="font-bold text-slate-800">🔋 {currentTrackingEmployee.batteryLevel != null ? `${currentTrackingEmployee.batteryLevel}%` : '--'}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 italic">
+                            Trip is not actively in progress today. Showing live position marker on map.
+                          </p>
+                        </div>
                       )}
                       {(historicalRoute?.origin || (historicalRoute?.checkpoints && historicalRoute.checkpoints.length > 0)) && (
                         <div className="relative pl-6 space-y-6 before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
@@ -1165,17 +1290,116 @@ export default function AdminDashboard({ initialTab }) {
                     {/* Map Area */}
                     <div className="flex-1 p-0 relative min-h-[400px]">
                        <LiveTrackingMap 
-                         historicalRoute={historicalRoute} 
-                         liveLocation={selectedTrackingEmployee.lastLatitude && selectedTrackingEmployee.lastLongitude ? { latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
-                         lastKnownAddress={selectedTrackingEmployee.lastKnownAddress ? { address: selectedTrackingEmployee.lastKnownAddress, latitude: selectedTrackingEmployee.lastLatitude, longitude: selectedTrackingEmployee.lastLongitude } : null}
-                       />
+                          historicalRoute={historicalRoute} 
+                          liveLocation={(() => {
+                            const hasPingToday = isTrackingToday && lastLocTime && isTodayDate(lastLocTimeStr);
+                            const lat = currentTrackingEmployee.lastLatitude || (currentTrackingEmployee.assignedArea?.toLowerCase().includes("nesari") ? 16.0682 : currentTrackingEmployee.assignedArea?.toLowerCase().includes("gadhinglaj") ? 16.2227 : 16.0682);
+                            const lng = currentTrackingEmployee.lastLongitude || (currentTrackingEmployee.assignedArea?.toLowerCase().includes("nesari") ? 74.3315 : currentTrackingEmployee.assignedArea?.toLowerCase().includes("gadhinglaj") ? 74.3519 : 74.3315);
+                            if (hasPingToday && lat && lng) {
+                              return {
+                                latitude: lat,
+                                longitude: lng,
+                                isOnline: isEmployeeOnline,
+                                lastSeenTime: lastLocTime
+                              };
+                            }
+                            return null;
+                          })()}
+                          lastKnownAddress={{
+                            address: currentTrackingEmployee.lastKnownAddress || (currentTrackingEmployee.assignedArea ? `${currentTrackingEmployee.assignedArea}, Maharashtra` : "Nesari, Maharashtra, India"),
+                            latitude: currentTrackingEmployee.lastLatitude || 16.0682,
+                            longitude: currentTrackingEmployee.lastLongitude || 74.3315
+                          }}
+                          isOnline={isEmployeeOnline}
+                        />
                     </div>
                   </div>
                 </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
+        {/* Devices Tab */}
+        {activeTab === 'devices' && (
+          <DeviceManagement />
+        )}
+
+
+      {/* In-App Device Action Confirmation Popup */}
+      {deviceActionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-150 relative text-left">
+            <button
+              onClick={() => setDeviceActionModal(null)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="flex items-start gap-4 pr-6">
+              {deviceActionModal.type === 'approve' ? (
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                  🛡️
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center text-xl font-black shrink-0 shadow-inner">
+                  ✕
+                </div>
+              )}
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  {deviceActionModal.type === 'approve' ? 'Approve Device Request?' : 'Reject Device Request?'}
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {deviceActionModal.type === 'approve'
+                    ? `Approve new device for ${deviceActionModal.name}? Any previously approved device will be unlinked and logged out.`
+                    : `Reject device change request for ${deviceActionModal.name}?`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeviceActionModal(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              {deviceActionModal.type === 'approve' ? (
+                <button
+                  type="button"
+                  onClick={confirmDeviceAction}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/25 transition-all cursor-pointer"
+                >
+                  Confirm &amp; Approve
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={confirmDeviceAction}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/25 transition-all cursor-pointer"
+                >
+                  Confirm Reject
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {actionToast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom duration-200">
+          <div className={`px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold ${
+            actionToast.type === 'error' ? 'bg-rose-600 text-white' : actionToast.type === 'info' ? 'bg-slate-800 text-white' : 'bg-emerald-600 text-white'
+          }`}>
+            <span>{actionToast.type === 'error' ? '⚠️' : actionToast.type === 'info' ? 'ℹ️' : '✓'}</span>
+            <span>{actionToast.message}</span>
+          </div>
+        </div>
+      )}
       </main>
 
       {/* Travel Drilldown Modal */}

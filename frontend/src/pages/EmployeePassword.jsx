@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { loginEmployee } from '../services/api';
+import { getDeviceId, getDeviceName, getCurrentCoordinates } from '../utils/deviceHelper';
+import { useDeviceApproval } from '../hooks/useDeviceApproval';
+import DeviceApprovalModal from '../components/DeviceApprovalModal';
 
 export default function EmployeePassword() {
   const navigate = useNavigate();
@@ -10,9 +13,20 @@ export default function EmployeePassword() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState('');
 
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+
   const locationState = location.state || {};
   const employeeId = locationState.employeeId || localStorage.getItem('rememberedEmployeeId') || localStorage.getItem('employeeId');
   const employeeName = locationState.employeeName || localStorage.getItem('rememberedEmployeeName') || localStorage.getItem('employeeName');
+
+  // Persistent login: stay logged in!
+  useEffect(() => {
+    const activeToken = localStorage.getItem('employeeToken');
+    const activeId = localStorage.getItem('employeeId');
+    if (activeId && activeToken) {
+      navigate('/employee-dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     // If no employee is selected or remembered, redirect back to Welcome
@@ -21,12 +35,50 @@ export default function EmployeePassword() {
     }
   }, [employeeId, employeeName, navigate]);
 
+  const onDeviceApproved = (session) => {
+    if (!session) return;
+    const empIdStr = session.employeeId.toString();
+    const empName = session.employeeName;
+
+    localStorage.setItem('employeeId', empIdStr);
+    localStorage.setItem('employeeName', empName);
+    localStorage.setItem('rememberedEmployeeId', empIdStr);
+    localStorage.setItem('rememberedEmployeeName', empName);
+
+    if (session.token) {
+      localStorage.setItem('employeeToken', session.token);
+    }
+    if (session.refreshToken) {
+      localStorage.setItem('refreshToken', session.refreshToken);
+    }
+
+    setIsApprovalModalOpen(false);
+    window.alert("Device Approved! Please allow location permission 'Allow all the time' in your device settings.");
+    navigate('/employee-dashboard', { replace: true });
+  };
+
+  const {
+    status: deviceStatus,
+    setStatus: setDeviceStatus,
+    reason: deviceReason,
+    setReason: setDeviceReason,
+    reasonSaved,
+    isSubmittingReason,
+    submitReason,
+    errorMessage: deviceErrorMessage
+  } = useDeviceApproval({
+    employeeId,
+    deviceId: getDeviceId(),
+    onApproved: onDeviceApproved
+  });
+
   const handleSwitchProfile = () => {
     localStorage.removeItem('rememberedEmployeeName');
     localStorage.removeItem('rememberedEmployeeId');
     localStorage.removeItem('employeeName');
     localStorage.removeItem('employeeId');
     localStorage.removeItem('employeeToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('employeeRoute');
     navigate('/welcome');
   };
@@ -38,22 +90,75 @@ export default function EmployeePassword() {
     
     try {
       const cleanPassword = password.trim();
-      const payload = { employeeId: parseInt(employeeId, 10), password: cleanPassword };
+      const deviceId = getDeviceId();
+      const deviceName = getDeviceName();
+      const coords = await getCurrentCoordinates();
+      
+      const payload = { 
+        employeeId: parseInt(employeeId, 10), 
+        password: cleanPassword, 
+        deviceId,
+        deviceName,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+        locationName: coords?.locationName
+      };
       
       const response = await loginEmployee(payload);
+      
+      // Handle NOTE_REQUIRED or REVOKED (Device needs approval note)
+      if (response.status === 'NOTE_REQUIRED' || response.status === 'REVOKED') {
+        setDeviceStatus('NOTE_REQUIRED');
+        if (response.reason) {
+          setDeviceReason(response.reason);
+        }
+        setIsApprovalModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (response.status === 'PENDING' || response.isDeviceChangePending) {
+        setDeviceStatus('PENDING');
+        if (response.reason) {
+          setDeviceReason(response.reason);
+        }
+        setIsApprovalModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (response.status === 'REJECTED') {
+        setDeviceStatus('REJECTED');
+        setIsApprovalModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
       
       // Save info on success
       localStorage.setItem('employeeId', response.employeeId.toString());
       localStorage.setItem('employeeName', response.employeeName);
       localStorage.setItem('rememberedEmployeeId', response.employeeId.toString());
       localStorage.setItem('rememberedEmployeeName', response.employeeName);
+
       if (response.token) {
         localStorage.setItem('employeeToken', response.token);
       }
+      if (response.refreshToken) {
+        localStorage.setItem('refreshToken', response.refreshToken);
+      }
       
-      navigate('/employee-dashboard');
+      window.alert("Please allow location permission 'Allow all the time' in your device settings so that background tracking works properly.");
+      
+      navigate('/employee-dashboard', { replace: true });
     } catch (err) {
-      setAuthError(err.response?.data?.message || `Network Error: ${err.message}`);
+      const errData = err.response?.data;
+      if (errData && (errData.status === 'REVOKED' || errData.status === 'NOTE_REQUIRED' || errData.status === 'PENDING' || errData.isDeviceRevoked)) {
+        setDeviceStatus(errData.status === 'PENDING' ? 'PENDING' : 'NOTE_REQUIRED');
+        if (errData.reason) setDeviceReason(errData.reason);
+        setIsApprovalModalOpen(true);
+      } else {
+        setAuthError(errData?.message || `Network Error: ${err.message}`);
+      }
       setIsSubmitting(false);
     }
   };
@@ -62,6 +167,25 @@ export default function EmployeePassword() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8">
+      {/* Device Approval Modal */}
+      <DeviceApprovalModal
+        isOpen={isApprovalModalOpen}
+        deviceName={getDeviceName()}
+        deviceId={getDeviceId()}
+        employeeName={employeeName}
+        reason={deviceReason}
+        onReasonChange={setDeviceReason}
+        onSubmitReason={submitReason}
+        isSubmittingReason={isSubmittingReason}
+        reasonSaved={reasonSaved}
+        status={deviceStatus}
+        errorMessage={deviceErrorMessage}
+        onCancel={() => {
+          setIsApprovalModalOpen(false);
+          setDeviceStatus('IDLE');
+        }}
+      />
+
       <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 max-w-lg w-full text-center border border-slate-100">
         
         <img src="/gmark-logo.png" alt="Navbharat Agro Service Logo" className="h-28 w-28 mx-auto mb-6 rounded-2xl shadow-lg object-contain bg-white" />

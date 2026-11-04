@@ -116,7 +116,9 @@ export default function RoutesPage() {
         if (data) {
           const isToday = data.tripStartTime && new Date(data.tripStartTime).toDateString() === new Date().toDateString();
           if (isToday) {
-            setTripStatus(data.tripStatus || 'Not Started');
+            const currentStatus = data.tripStatus || 'Not Started';
+            setTripStatus(currentStatus);
+            localStorage.setItem('tripStatus', currentStatus);
             if (data.selectedRouteCode) {
               setSelectedCode(data.selectedRouteCode);
               if (data.tripStatus === 'Started') {
@@ -132,7 +134,9 @@ export default function RoutesPage() {
               setTripStopTime(formattedEnd);
             }
           } else {
-            setTripStatus('Not Started');
+            setTripStatus('Stopped');
+        localStorage.setItem('tripStatus', 'Stopped');
+            localStorage.setItem('tripStatus', 'Not Started');
             setTripStartTime('');
             setTripStopTime('');
             setActiveRouteCode('');
@@ -246,12 +250,14 @@ export default function RoutesPage() {
         await startTrip(employeeId, routeLabel);
       }
       setTripStatus('Started');
+      localStorage.setItem('tripStatus', 'Started');
       setTripStartTime(nowTimeStr);
       setRohitFeedback(`Trip Started at ${nowTimeStr}!`);
       navigate('/employee-dashboard');
     } catch (err) {
       console.error("Failed to start trip", err);
       setTripStatus('Started');
+      localStorage.setItem('tripStatus', 'Started');
       setTripStartTime(nowTimeStr);
       setRohitFeedback(`Trip Started at ${nowTimeStr}!`);
       navigate('/employee-dashboard');
@@ -268,7 +274,8 @@ export default function RoutesPage() {
     try {
       if (employeeId) {
         const data = await stopTrip(employeeId);
-        setTripStatus('Not Started');
+        setTripStatus('Stopped');
+        localStorage.setItem('tripStatus', 'Stopped');
         if (data.tripEndTime) {
           const formattedEnd = new Date(data.tripEndTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
           setTripStopTime(formattedEnd);
@@ -276,7 +283,8 @@ export default function RoutesPage() {
           setTripStopTime(nowTimeStr);
         }
       } else {
-        setTripStatus('Not Started');
+        setTripStatus('Stopped');
+        localStorage.setItem('tripStatus', 'Stopped');
         setTripStopTime(nowTimeStr);
       }
       setActiveRouteCode('');
@@ -294,7 +302,8 @@ export default function RoutesPage() {
       }
     } catch (err) {
       console.error("Failed to stop trip", err);
-      setTripStatus('Not Started');
+      setTripStatus('Stopped');
+      localStorage.setItem('tripStatus', 'Stopped');
       setTripStopTime(nowTimeStr);
       setActiveRouteCode('');
       setShowStartModal(false);
@@ -333,6 +342,7 @@ export default function RoutesPage() {
         await startTrip(employeeId, selectedRouteCode);
       }
       setTripStatus('Started');
+      localStorage.setItem('tripStatus', 'Started');
       setTripStartTime(nowTimeStr);
       setActiveRouteCode(selectedRouteCode);
       setShowStartModal(false);
@@ -340,6 +350,7 @@ export default function RoutesPage() {
     } catch (err) {
       console.error("Failed to record start trip", err);
       setTripStatus('Started');
+      localStorage.setItem('tripStatus', 'Started');
       setTripStartTime(nowTimeStr);
       setActiveRouteCode(selectedRouteCode);
       setShowStartModal(false);

@@ -28,6 +28,8 @@ services:
     environment:
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=gtrack_db;Username=gtrack_user;Password=gtrack_password"
       ASPNETCORE_ENVIRONMENT: "Production"
+      GOOGLE_MAPS_ROUTES_API_KEY: "AIzaSyC9-50lwsUipQ9txoB9OoRnJd8HeCNXzrI"
+      GOOGLE_MAPS_GEOCODING_API_KEY: "AIzaSyC9-50lwsUipQ9txoB9OoRnJd8HeCNXzrI"
     ports:
       - "5001:8080"
     depends_on:
