@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NavbharatAgroAPI.Data;
 using NavbharatAgroAPI.DTOs;
@@ -477,7 +477,7 @@ namespace NavbharatAgroAPI.Controllers
                 GpsPings = gpsPings
             };
 
-            var apiKey = Environment.GetEnvironmentVariable("GOOGLE_MAPS_ROUTES_API_KEY") ?? "AIzaSyC9-50lwsUipQ9txoB9OoRnJd8HeCNXzrI";
+            var apiKey = Environment.GetEnvironmentVariable("GOOGLE_MAPS_ROUTES_API_KEY") ?? "AIzaSyC1s_R-0l5F4zhT9BmDPtDkq1dkP_gMwnw";
             if (string.IsNullOrEmpty(apiKey))
             {
                 return Ok(response);
@@ -502,6 +502,9 @@ namespace NavbharatAgroAPI.Controllers
                 using var httpClient = new System.Net.Http.HttpClient();
                 httpClient.DefaultRequestHeaders.Add("X-Goog-Api-Key", apiKey);
                 httpClient.DefaultRequestHeaders.Add("X-Goog-FieldMask", "routes.polyline.encodedPolyline");
+                var incomingReferer = Request.Headers["Referer"].ToString();
+                var refererToSend = !string.IsNullOrEmpty(incomingReferer) ? incomingReferer : "http://localhost:3002/";
+                httpClient.DefaultRequestHeaders.Add("Referer", refererToSend);
 
                 var googleResponse = await httpClient.PostAsJsonAsync("https://routes.googleapis.com/directions/v2:computeRoutes", routeRequest);
                 

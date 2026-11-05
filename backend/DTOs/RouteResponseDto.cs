@@ -31,5 +31,6 @@ namespace NavbharatAgroAPI.DTOs
         public string? Message { get; set; }
         public double TotalDistanceKm { get; set; }
         public List<RouteCoordinateDto> GpsPings { get; set; } = new List<RouteCoordinateDto>();
+        public List<RouteCoordinateDto> Path => GpsPings;
     }
 }

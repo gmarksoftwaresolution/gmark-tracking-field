@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getEmployees,
@@ -500,7 +500,7 @@ export default function AdminDashboard({ initialTab }) {
             onClick={() => setActiveTab('devices')}
             className={`flex-1 py-4 font-semibold text-center transition-colors flex items-center justify-center gap-2 ${activeTab === 'devices' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
           >
-            <span>📱 Devices</span>
+            <span>📍± Devices</span>
             {pendingDeviceCount > 0 && (
               <span className="bg-amber-500 text-white text-[11px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-sm">
                 {pendingDeviceCount}
@@ -955,7 +955,7 @@ export default function AdminDashboard({ initialTab }) {
                         </td>
 
                         <td className="py-3.5 px-4 font-semibold text-blue-600">
-                          📍 {routeDisplay}
+                          📍 {routeDisplay}
                         </td>
 
                         <td className="py-3.5 px-4 font-semibold text-slate-700">
@@ -979,7 +979,7 @@ export default function AdminDashboard({ initialTab }) {
                                   </span>
                                   {locationAddress && (
                                     <span className="text-[11px] font-medium text-slate-600 flex items-center gap-1 mt-0.5 truncate max-w-[150px]" title={locationAddress}>
-                                      <span className="text-rose-500 text-xs">📍</span>
+                                      <span className="text-rose-500 text-xs">📍</span>
                                       <span>{locationAddress}</span>
                                     </span>
                                   )}
@@ -1047,6 +1047,7 @@ export default function AdminDashboard({ initialTab }) {
 
             {selectedTrackingEmployee && (() => {
               const currentTrackingEmployee = employees.find(emp => emp.id === selectedTrackingEmployee.id) || selectedTrackingEmployee;
+              const currentEmployeeRoute = (historicalRoute && historicalRoute.employeeId === currentTrackingEmployee.id) ? historicalRoute : null;
               const lastLocTimeStr = currentTrackingEmployee.lastLocationTimestamp || currentTrackingEmployee.lastLocationTime;
               const lastLocTime = lastLocTimeStr ? new Date(lastLocTimeStr.endsWith('Z') ? lastLocTimeStr : lastLocTimeStr + 'Z') : null;
               
@@ -1110,10 +1111,10 @@ export default function AdminDashboard({ initialTab }) {
                   </div>
 
                   {/* Summary Bar */}
-                  {historicalRoute && (historicalRoute.origin || (historicalRoute.checkpoints && historicalRoute.checkpoints.length > 0)) && (() => {
+                  {currentEmployeeRoute && (currentEmployeeRoute.origin || (currentEmployeeRoute.checkpoints && currentEmployeeRoute.checkpoints.length > 0)) && (() => {
                     const normalizeTime = (ts) => new Date(ts.replace('Z', ''));
-                    const startTs = historicalRoute.gpsPings?.length > 0 ? historicalRoute.gpsPings[0].timestamp : (historicalRoute.origin?.timestamp || (historicalRoute.checkpoints?.length > 0 ? historicalRoute.checkpoints[0].timestamp : null));
-                    const destTs = (historicalRoute.gpsPings?.length > 1) ? historicalRoute.gpsPings[historicalRoute.gpsPings.length - 1].timestamp : (historicalRoute.destination?.timestamp || (historicalRoute.checkpoints?.length > 0 ? historicalRoute.checkpoints[historicalRoute.checkpoints.length - 1].timestamp : null));
+                    const startTs = currentEmployeeRoute.gpsPings?.length > 0 ? currentEmployeeRoute.gpsPings[0].timestamp : (currentEmployeeRoute.origin?.timestamp || (currentEmployeeRoute.checkpoints?.length > 0 ? currentEmployeeRoute.checkpoints[0].timestamp : null));
+                    const destTs = (currentEmployeeRoute.gpsPings?.length > 1) ? currentEmployeeRoute.gpsPings[currentEmployeeRoute.gpsPings.length - 1].timestamp : (currentEmployeeRoute.destination?.timestamp || (currentEmployeeRoute.checkpoints?.length > 0 ? currentEmployeeRoute.checkpoints[currentEmployeeRoute.checkpoints.length - 1].timestamp : null));
                     return (
                       <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-6 grid grid-cols-2 md:grid-cols-5 gap-4 text-center divide-y md:divide-y-0 md:divide-x divide-slate-100">
                         <div className="pt-2 md:pt-0">
@@ -1126,15 +1127,15 @@ export default function AdminDashboard({ initialTab }) {
                         </div>
                         <div className="pt-2 md:pt-0">
                           <p className="text-xs text-slate-500 mb-1">Total Distance</p>
-                          <p className="font-bold text-slate-800">{historicalRoute.totalDistanceKm?.toFixed(2) || 0} km</p>
+                          <p className="font-bold text-slate-800">{currentEmployeeRoute.totalDistanceKm?.toFixed(2) || 0} km</p>
                         </div>
                         <div className="pt-2 md:pt-0">
                           <p className="text-xs text-slate-500 mb-1">GPS Pings</p>
-                          <p className="font-bold text-slate-800">{historicalRoute.gpsPings?.length || 0}</p>
+                          <p className="font-bold text-slate-800">{currentEmployeeRoute.gpsPings?.length || 0}</p>
                         </div>
                         <div className="pt-2 md:pt-0">
                           <p className="text-xs text-slate-500 mb-1">Checkpoints</p>
-                          <p className="font-bold text-slate-800">{historicalRoute.checkpoints?.length || 0}</p>
+                          <p className="font-bold text-slate-800">{currentEmployeeRoute.checkpoints?.length || 0}</p>
                         </div>
                       </div>
                     );
@@ -1144,7 +1145,7 @@ export default function AdminDashboard({ initialTab }) {
                     {/* Journey Timeline Sidebar */}
                     <div className="w-full md:w-1/3 max-w-sm bg-slate-50/50 border-r border-slate-100 overflow-y-auto p-4 custom-scrollbar">
                       <h4 className="text-sm font-bold text-slate-800 mb-4 px-2">Journey Timeline</h4>
-                      {(!historicalRoute?.origin && (!historicalRoute?.checkpoints || historicalRoute.checkpoints.length === 0)) && (
+                      {(!currentEmployeeRoute?.origin && (!currentEmployeeRoute?.checkpoints || currentEmployeeRoute?.checkpoints?.length === 0)) && (
                         <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">Live Status</span>
@@ -1160,7 +1161,7 @@ export default function AdminDashboard({ initialTab }) {
                           <div>
                             <span className="text-xs text-slate-500 font-medium block">Current Location:</span>
                             <span className="text-sm font-bold text-slate-900 flex items-center gap-1 mt-0.5">
-                              <span className="text-rose-500">📍</span>
+                              <span className="text-rose-500">📍</span>
                               <span>{currentTrackingEmployee.lastKnownAddress || (currentTrackingEmployee.assignedArea ? `${currentTrackingEmployee.assignedArea}, Maharashtra` : 'Maharashtra, India')}</span>
                             </span>
                           </div>
@@ -1173,7 +1174,7 @@ export default function AdminDashboard({ initialTab }) {
                           </p>
                         </div>
                       )}
-                      {(historicalRoute?.origin || (historicalRoute?.checkpoints && historicalRoute.checkpoints.length > 0)) && (
+                      {(currentEmployeeRoute?.origin || (currentEmployeeRoute?.checkpoints && currentEmployeeRoute?.checkpoints?.length > 0)) && (
                         <div className="relative pl-6 space-y-6 before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                         
                         {/* Build Timeline Data */}
@@ -1192,36 +1193,36 @@ export default function AdminDashboard({ initialTab }) {
                           };
 
                           // 1. START
-                          const hasPings = historicalRoute.gpsPings && historicalRoute.gpsPings.length > 0;
+                          const hasPings = currentEmployeeRoute.gpsPings && currentEmployeeRoute.gpsPings.length > 0;
                           
                           if (hasPings) {
-                              const firstPing = historicalRoute.gpsPings[0];
+                              const firstPing = currentEmployeeRoute.gpsPings[0];
                               timeline.push({
                                   id: 'origin',
                                   type: 'Start',
-                                  name: historicalRoute.origin?.name || 'Trip Started',
+                                  name: currentEmployeeRoute.origin?.name || 'Trip Started',
                                   timestamp: firstPing.timestamp,
                                   lat: firstPing.latitude || firstPing.lat,
                                   lng: firstPing.longitude || firstPing.lng,
                                   color: 'bg-emerald-500',
                                   textColor: 'text-emerald-700'
                               });
-                          } else if (historicalRoute.origin) {
+                          } else if (currentEmployeeRoute.origin) {
                               timeline.push({
                                   id: 'origin',
                                   type: 'Start',
-                                  name: historicalRoute.origin.name || 'Trip Started',
-                                  timestamp: historicalRoute.origin.timestamp,
-                                  lat: historicalRoute.origin.latitude || historicalRoute.origin.lat,
-                                  lng: historicalRoute.origin.longitude || historicalRoute.origin.lng,
+                                  name: currentEmployeeRoute.origin.name || 'Trip Started',
+                                  timestamp: currentEmployeeRoute.origin.timestamp,
+                                  lat: currentEmployeeRoute.origin.latitude || currentEmployeeRoute.origin.lat,
+                                  lng: currentEmployeeRoute.origin.longitude || currentEmployeeRoute.origin.lng,
                                   color: 'bg-emerald-500',
                                   textColor: 'text-emerald-700'
                               });
                           }
 
                           // 2. CHECKPOINTS
-                          if (historicalRoute.checkpoints && historicalRoute.checkpoints.length > 0) {
-                              historicalRoute.checkpoints.forEach((cp, idx) => {
+                          if (currentEmployeeRoute.checkpoints && currentEmployeeRoute.checkpoints.length > 0) {
+                              currentEmployeeRoute.checkpoints.forEach((cp, idx) => {
                                   timeline.push({
                                       id: `cp-${idx}`,
                                       type: cp.type === 'FieldVisit' ? 'Field Visit' : 'Order Booking',
@@ -1236,26 +1237,26 @@ export default function AdminDashboard({ initialTab }) {
                           }
 
                           // 3. END
-                          if (hasPings && historicalRoute.gpsPings.length > 1) {
-                              const lastPing = historicalRoute.gpsPings[historicalRoute.gpsPings.length - 1];
+                          if (hasPings && currentEmployeeRoute.gpsPings.length > 1) {
+                              const lastPing = currentEmployeeRoute.gpsPings[currentEmployeeRoute.gpsPings.length - 1];
                               timeline.push({
                                   id: 'destination',
                                   type: 'End',
-                                  name: historicalRoute.destination?.name || 'Last Known Location',
+                                  name: currentEmployeeRoute.destination?.name || 'Last Known Location',
                                   timestamp: lastPing.timestamp,
                                   lat: lastPing.latitude || lastPing.lat,
                                   lng: lastPing.longitude || lastPing.lng,
                                   color: 'bg-rose-500',
                                   textColor: 'text-rose-700'
                               });
-                          } else if (historicalRoute.destination) {
+                          } else if (currentEmployeeRoute.destination) {
                               timeline.push({
                                   id: 'destination',
                                   type: 'End',
-                                  name: historicalRoute.destination.name || 'Last Known Location',
-                                  timestamp: historicalRoute.destination.timestamp,
-                                  lat: historicalRoute.destination.latitude || historicalRoute.destination.lat,
-                                  lng: historicalRoute.destination.longitude || historicalRoute.destination.lng,
+                                  name: currentEmployeeRoute.destination.name || 'Last Known Location',
+                                  timestamp: currentEmployeeRoute.destination.timestamp,
+                                  lat: currentEmployeeRoute.destination.latitude || currentEmployeeRoute.destination.lat,
+                                  lng: currentEmployeeRoute.destination.longitude || currentEmployeeRoute.destination.lng,
                                   color: 'bg-rose-500',
                                   textColor: 'text-rose-700'
                               });
@@ -1290,7 +1291,7 @@ export default function AdminDashboard({ initialTab }) {
                     {/* Map Area */}
                     <div className="flex-1 p-0 relative min-h-[400px]">
                        <LiveTrackingMap 
-                          historicalRoute={historicalRoute} 
+                          key={`tracking-map-${currentTrackingEmployee.id}-${trackingDate}`} employeeId={currentTrackingEmployee.id} historicalRoute={currentEmployeeRoute} 
                           liveLocation={(() => {
                             const hasPingToday = isTrackingToday && lastLocTime && isTodayDate(lastLocTimeStr);
                             const lat = currentTrackingEmployee.lastLatitude || (currentTrackingEmployee.assignedArea?.toLowerCase().includes("nesari") ? 16.0682 : currentTrackingEmployee.assignedArea?.toLowerCase().includes("gadhinglaj") ? 16.2227 : 16.0682);
@@ -1342,11 +1343,11 @@ export default function AdminDashboard({ initialTab }) {
             <div className="flex items-start gap-4 pr-6">
               {deviceActionModal.type === 'approve' ? (
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center text-2xl shrink-0 shadow-inner">
-                  🛡️
+                  🛡️ï¸
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center text-xl font-black shrink-0 shadow-inner">
-                  ✕
+                  âœ•
                 </div>
               )}
               <div className="space-y-1">
@@ -1395,7 +1396,7 @@ export default function AdminDashboard({ initialTab }) {
           <div className={`px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold ${
             actionToast.type === 'error' ? 'bg-rose-600 text-white' : actionToast.type === 'info' ? 'bg-slate-800 text-white' : 'bg-emerald-600 text-white'
           }`}>
-            <span>{actionToast.type === 'error' ? '⚠️' : actionToast.type === 'info' ? 'ℹ️' : '✓'}</span>
+            <span>{actionToast.type === 'error' ? 'âš ï¸' : actionToast.type === 'info' ? 'â„¹ï¸' : '✓'}</span>
             <span>{actionToast.message}</span>
           </div>
         </div>

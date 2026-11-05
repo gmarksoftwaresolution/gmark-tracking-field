@@ -28,15 +28,15 @@ namespace NavbharatAgroAPI.Data
             }
 
             // Explicitly remove incorrect record Prutivraj (EmployeeCode: EMP002 or Name: Prutivraj)
-var incorrectPrutivraj = context.Employees
-    .AsEnumerable()
-    .Where(e =>
-        e.EmployeeCode == "EMP002" ||
-        e.Name.Trim().Equals("Prutivraj", StringComparison.OrdinalIgnoreCase) ||
-        (e.Name.ToLower().Contains("prutivraj") &&
-         !e.Name.ToLower().Contains("pruthviraj"))
-    )
-    .ToList();
+            var incorrectPrutivraj = context.Employees
+                .AsEnumerable()
+                .Where(e =>
+                    e.EmployeeCode == "EMP002" ||
+                    e.Name.Trim().Equals("Prutivraj", StringComparison.OrdinalIgnoreCase) ||
+                    (e.Name.ToLower().Contains("prutivraj") &&
+                     !e.Name.ToLower().Contains("pruthviraj"))
+                )
+                .ToList();
             if (incorrectPrutivraj.Any())
             {
                 context.Employees.RemoveRange(incorrectPrutivraj);
@@ -86,24 +86,48 @@ var incorrectPrutivraj = context.Employees
             var pruthviraj = context.Employees.FirstOrDefault(e => e.Name.ToLower().Contains("pruthviraj") || e.EmployeeCode.ToLower().Contains("p001"));
             if (pruthviraj == null)
             {
-                context.Employees.Add(new Employee
+                pruthviraj = new Employee
                 {
                     Id = 2,
                     Name = "Pruthviraj",
                     EmployeeCode = "P001",
                     MobileNumber = "9876543211",
                     AssignedArea = "Nesari",
+                    SelectedRouteCode = "P001",
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@p001"),
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
-                });
+                };
+                context.Employees.Add(pruthviraj);
             }
             else
             {
                 pruthviraj.EmployeeCode = "P001";
                 pruthviraj.PasswordHash = BCrypt.Net.BCrypt.HashPassword("gmark@p001");
                 pruthviraj.AssignedArea = "Nesari";
+                pruthviraj.SelectedRouteCode = "P001";
                 if (pruthviraj.BatteryLevel == 69) pruthviraj.BatteryLevel = null;
+            }
+
+            // Ensure Route P001 exists for Pruthviraj
+            var p001Route = context.RouteMasters.FirstOrDefault(r => r.RouteCode == "P001");
+            if (p001Route == null)
+            {
+                context.RouteMasters.Add(new RouteMaster
+                {
+                    RouteCode = "P001",
+                    RouteName = "Nesari → Waghrali",
+                    DayOfWeek = "Daily",
+                    AssignedEmployeeId = 2,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                p001Route.RouteName = "Nesari → Waghrali";
+                p001Route.AssignedEmployeeId = 2;
+                p001Route.IsActive = true;
             }
 
             // Ensure Rohit exists and update PasswordHash

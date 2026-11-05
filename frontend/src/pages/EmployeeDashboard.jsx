@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+﻿import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   getEmployeeOrderBookings,
@@ -240,7 +240,7 @@ export default function EmployeeDashboard() {
       showToast("🚀 Tracking Started! GPS route is recording in the background.");
     } catch (err) {
       console.error("Failed to start trip", err);
-      showToast("⚠️ Could not start tracking. Please check connection.");
+      showToast("âš ï¸ Could not start tracking. Please check connection.");
     } finally {
       setTripLoading(false);
     }
@@ -295,10 +295,10 @@ export default function EmployeeDashboard() {
         tripKm: segmentKm,
         totalKm: totalKm
       });
-      showToast(`⏹️ Trip Stopped! Added: ${segmentKm} km | Total today: ${totalKm} km`);
+      showToast(`â¹ï¸ Trip Stopped! Added: ${segmentKm} km | Total today: ${totalKm} km`);
     } catch (err) {
       console.error("Failed to stop trip", err);
-      showToast("⚠️ Could not stop tracking. Please try again.");
+      showToast("âš ï¸ Could not stop tracking. Please try again.");
     } finally {
       setTripLoading(false);
     }
@@ -544,7 +544,7 @@ export default function EmployeeDashboard() {
             >
               <span>🔋</span>
               <span>{batteryLevel != null ? `${batteryLevel}%` : 'Set %'}</span>
-              <span className="text-[10px] text-blue-200">✎</span>
+              <span className="text-[10px] text-blue-200">âœŽ</span>
             </button>
 
             <button
@@ -645,7 +645,7 @@ export default function EmployeeDashboard() {
                 
                 {isTripActive && (
                   <span className="font-mono text-xs font-bold bg-black/30 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-400/30">
-                    ⏱️ {elapsedTime}
+                    â±ï¸ {elapsedTime}
                   </span>
                 )}
               </div>
@@ -692,7 +692,7 @@ export default function EmployeeDashboard() {
                   disabled={tripLoading}
                   className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-7 py-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-black text-sm sm:text-base shadow-xl shadow-red-950/30 active:scale-[0.98] transition-all cursor-pointer border border-red-300/40 min-h-[52px]"
                 >
-                  <span className="text-xl">⏹️</span>
+                  <span className="text-xl">â¹ï¸</span>
                   <span>{tripLoading ? 'Stopping...' : 'Stop Tracking'}</span>
                 </button>
               ) : (
@@ -714,138 +714,6 @@ export default function EmployeeDashboard() {
             </div>
 
           </div>
-        </section>
-
-        {/* Live GPS & Battery Synchronization Card */}
-        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md p-4 sm:p-6 transition-all">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shadow-inner">
-                📍
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
-                  <span>Device & Satellite GPS Sync</span>
-                  {gpsStatus.loading ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 animate-pulse">
-                      Updating GPS...
-                    </span>
-                  ) : gpsStatus.latitude ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                      GPS Synced
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                      Ready to Sync
-                    </span>
-                  )}
-                </h2>
-                <p className="text-[11px] text-slate-500">Live coordinates and battery percentage sent in real time to Admin Dashboard</p>
-              </div>
-            </div>
-
-            {/* Quick Actions in Header */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefreshGps}
-                disabled={gpsStatus.loading}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
-              >
-                <span className={gpsStatus.loading ? 'animate-spin' : ''}>🔄</span>
-                <span>{gpsStatus.loading ? 'Locating...' : 'Refresh GPS'}</span>
-              </button>
-
-              <button
-                onClick={() => setLocationModalOpen(true)}
-                className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 active:scale-95 transition-all cursor-pointer"
-              >
-                <span>📍</span>
-                <span>Set Area</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setCustomBatteryInput(batteryLevel != null ? batteryLevel.toString() : "");
-                  setBatteryModalOpen(true);
-                }}
-                className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 active:scale-95 transition-all cursor-pointer"
-              >
-                <span>🔋</span>
-                <span>{batteryLevel != null ? `${batteryLevel}%` : 'Set %'}</span>
-                <span className="text-[10px] text-slate-400">✎</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Details Row: Location Address + Satellite Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            {/* Address Box */}
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Detected Live Location</span>
-                  <button
-                    onClick={() => setLocationModalOpen(true)}
-                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-                  >
-                    Change Area ✎
-                  </button>
-                </div>
-                <p className="text-slate-800 font-semibold mt-1 text-sm leading-snug">
-                  {gpsStatus.address || (gpsStatus.loading ? 'Querying satellite coordinates...' : 'Tap "Refresh GPS" or "Set Area" to set location')}
-                </p>
-              </div>
-              {gpsStatus.latitude && (
-                <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono mt-2 pt-2 border-t border-slate-200/60">
-                  <span>{gpsStatus.latitude.toFixed(5)}° N, {gpsStatus.longitude.toFixed(5)}° E</span>
-                  {gpsStatus.accuracy && <span className="text-emerald-600 font-semibold">(±{Math.round(gpsStatus.accuracy)}m)</span>}
-                </div>
-              )}
-            </div>
-
-            {/* Battery & Health Box */}
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reported Phone Battery</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-2xl">🔋</span>
-                  <div>
-                    <span className="text-base font-black text-slate-800">{batteryLevel != null ? `${batteryLevel}%` : 'Not Set'}</span>
-                    <p className="text-[11px] text-slate-500">Live battery level synced to Admin table</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500">Tap to adjust if different:</span>
-                <button
-                  onClick={() => {
-                    setCustomBatteryInput(batteryLevel != null ? batteryLevel.toString() : "");
-                    setBatteryModalOpen(true);
-                  }}
-                  className="text-blue-600 hover:text-blue-700 font-bold hover:underline cursor-pointer"
-                >
-                  Adjust Battery %
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Error Message if GPS blocked */}
-          {gpsStatus.error && (
-            <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span>⚠️</span>
-                <span>{gpsStatus.error}</span>
-              </div>
-              <button
-                onClick={() => setLocationModalOpen(true)}
-                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] whitespace-nowrap cursor-pointer"
-              >
-                Set Area Manually
-              </button>
-            </div>
-          )}
         </section>
 
         {/* Statistics Grid Section (2x2 on Mobile/Tablet, 4-Column Row on Laptop/Desktop) */}
@@ -920,14 +788,14 @@ export default function EmployeeDashboard() {
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-scale-up space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>📍</span>
+                <span>📍</span>
                 <span>Select Current Area</span>
               </h3>
               <button
                 onClick={() => setLocationModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold p-1 cursor-pointer"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -987,7 +855,7 @@ export default function EmployeeDashboard() {
                 onClick={() => setBatteryModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold p-1 cursor-pointer"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -1041,7 +909,7 @@ export default function EmployeeDashboard() {
             
             {/* Top Icon */}
             <div className="mx-auto w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl shadow-inner ring-8 ring-emerald-50">
-              🏁
+              ðŸ
             </div>
 
             {/* Heading */}
@@ -1061,7 +929,7 @@ export default function EmployeeDashboard() {
                 <p className="text-2xl font-black text-slate-800 mt-1">
                   +{completedTripModal.tripKm} <span className="text-xs font-semibold text-slate-500">km</span>
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1 font-medium">⏱️ {completedTripModal.duration}</p>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">â±ï¸ {completedTripModal.duration}</p>
               </div>
 
               <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-200/80">
